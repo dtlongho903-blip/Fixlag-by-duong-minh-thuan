@@ -1,0 +1,434 @@
+-- UNIVERSAL FPS BOOSTER - GOD MODE
+-- CLIENT SIDE ONLY
+-- CREDIT: DƯƠNG MINH THUẬN
+
+if getgenv().FPS_GOD then return end
+getgenv().FPS_GOD = true
+
+local Players = game:GetService("Players")
+local RunService = game:GetService("RunService")
+local Lighting = game:GetService("Lighting")
+local TeleportService = game:GetService("TeleportService")
+local HttpService = game:GetService("HttpService")
+local TweenService = game:GetService("TweenService")
+local player = Players.LocalPlayer
+local cam = workspace.CurrentCamera
+
+--------------------------------------------------
+-- CREDIT DISPLAY
+--------------------------------------------------
+print("=====================================")
+print("MINH THUẬN GUI FIXLAG")
+print("Credit: Dương Minh Thuận")
+print("=====================================")
+
+-- Tạo màn hình credit
+local creditGui = Instance.new("ScreenGui", game.CoreGui)
+creditGui.Name = "CreditGUI"
+creditGui.ResetOnSpawn = false
+
+local creditFrame = Instance.new("Frame", creditGui)
+creditFrame.Size = UDim2.new(1, 0, 1, 0)
+creditFrame.BackgroundColor3 = Color3.fromRGB(0, 0, 0)
+creditFrame.BackgroundTransparency = 0
+creditFrame.ZIndex = 999
+
+local creditText = Instance.new("TextLabel", creditFrame)
+creditText.Size = UDim2.new(1, 0, 1, 0)
+creditText.Text = "Credit: Dương Minh Thuận\nMINH THUẬN GUI FIXLAG"
+creditText.TextColor3 = Color3.fromRGB(255, 255, 255)
+creditText.BackgroundTransparency = 1
+creditText.Font = Enum.Font.GothamBold
+creditText.TextSize = 36
+creditText.TextScaled = false
+creditText.ZIndex = 1000
+
+-- Ẩn credit sau 2 giây
+task.delay(2, function()
+    local tween = TweenService:Create(creditFrame, TweenInfo.new(1), {BackgroundTransparency = 1})
+    local textTween = TweenService:Create(creditText, TweenInfo.new(1), {TextTransparency = 1})
+    tween:Play()
+    textTween:Play()
+    
+    tween.Completed:Connect(function()
+        creditGui:Destroy()
+        -- Load Rayfield và tạo GUI chính
+        createMainGUI()
+    end)
+end)
+
+--------------------------------------------------
+-- STATE
+--------------------------------------------------
+local STATE = {
+    FX = false,
+    GRAY = false,
+    SOUND = false,
+    POST = false,
+    SHADOW = false,
+}
+
+--------------------------------------------------
+-- CORE SAFE FUNCTIONS
+--------------------------------------------------
+local function clearFX()
+    for _,v in ipairs(workspace:GetDescendants()) do
+        if v:IsA("ParticleEmitter") or v:IsA("Trail")
+        or v:IsA("Beam") or v:IsA("Fire")
+        or v:IsA("Smoke") or v:IsA("Sparkles") then
+            v.Enabled = false
+        end
+    end
+end
+
+local function grayChar(m)
+    for _,v in ipairs(m:GetDescendants()) do
+        if v:IsA("BasePart") then
+            v.Material = Enum.Material.Plastic
+            v.Color = Color3.fromRGB(135,135,135)
+            v.CastShadow = false
+        elseif v:IsA("Decal") or v:IsA("Texture") then
+            v:Destroy()
+        end
+    end
+end
+
+--------------------------------------------------
+-- CREATE MAIN GUI FUNCTION
+--------------------------------------------------
+function createMainGUI()
+    -- Load Rayfield Library
+    local Rayfield = loadstring(game:HttpGet('https://raw.githubusercontent.com/shlexware/Rayfield/main/source'))()
+    
+    local Window = Rayfield:CreateWindow({
+        Name = "🥼👓 Minh Thuận GUI FixLag - FPS Booster",
+        LoadingTitle = "Minh Thuận GUI FixLag",
+        LoadingSubtitle = "by Dương Minh Thuận",
+        ConfigurationSaving = {
+           Enabled = false,
+        },
+        Discord = {
+           Enabled = false,
+        },
+        KeySystem = false,
+    })
+    
+    -- Tab chính
+    local MainTab = Window:CreateTab("Tối Ưu FPS", 4483362458)
+    
+    -- Section: Tối ưu cơ bản
+    local BasicSection = MainTab:CreateSection("Tối Ưu Cơ Bản")
+    
+    MainTab:CreateButton({
+        Name = "🚀 MASTER SWITCH - Bật tất cả tối ưu",
+        Callback = function()
+            Rayfield:Notify({
+                Title = "Đã bật tất cả tối ưu",
+                Content = "Đang áp dụng toàn bộ tính năng tối ưu...",
+                Duration = 3,
+            })
+            
+            STATE.FX = true
+            STATE.GRAY = true
+            STATE.SOUND = true
+            STATE.POST = true
+            STATE.SHADOW = true
+
+            clearFX()
+
+            for _,v in ipairs(Lighting:GetChildren()) do
+                if v:IsA("PostEffect") then v.Enabled = false end
+            end
+            Lighting.GlobalShadows = false
+
+            for _,s in ipairs(workspace:GetDescendants()) do
+                if s:IsA("Sound") then
+                    s.Volume = 0
+                    s.Playing = false
+                end
+            end
+
+            for _,m in ipairs(workspace:GetChildren()) do
+                if m:IsA("Model") and m:FindFirstChild("Humanoid") then
+                    grayChar(m)
+                end
+            end
+        end,
+    })
+    
+    MainTab:CreateButton({
+        Name = "🎇 Xóa hiệu ứng kỹ năng",
+        Callback = function()
+            STATE.FX = true
+            clearFX()
+            Rayfield:Notify({
+                Title = "Đã xóa hiệu ứng",
+                Content = "Tất cả hiệu ứng kỹ năng đã được tắt",
+                Duration = 3,
+            })
+        end,
+    })
+    
+    MainTab:CreateButton({
+        Name = "🧱 Chuyển nhân vật thành LEGO xám",
+        Callback = function()
+            STATE.GRAY = true
+            for _,m in ipairs(workspace:GetChildren()) do
+                if m:IsA("Model") and m:FindFirstChild("Humanoid") then
+                    grayChar(m)
+                end
+            end
+            Rayfield:Notify({
+                Title = "Đã chuyển nhân vật",
+                Content = "Tất cả nhân vật đã thành LEGO xám",
+                Duration = 3,
+            })
+        end,
+    })
+    
+    -- Section: Tối ưu nâng cao
+    local AdvancedSection = MainTab:CreateSection("Tối Ưu Nâng Cao")
+    
+    MainTab:CreateButton({
+        Name = "🔇 Tắt âm thanh hiệu ứng",
+        Callback = function()
+            STATE.SOUND = true
+            for _,s in ipairs(workspace:GetDescendants()) do
+                if s:IsA("Sound") then
+                    s.Volume = 0
+                    s.Playing = false
+                end
+            end
+            Rayfield:Notify({
+                Title = "Đã tắt âm thanh",
+                Content = "Tất cả âm thanh hiệu ứng đã bị tắt",
+                Duration = 3,
+            })
+        end,
+    })
+    
+    MainTab:CreateButton({
+        Name = "💡 Tắt hiệu ứng ánh sáng hậu kỳ",
+        Callback = function()
+            STATE.POST = true
+            for _,v in ipairs(Lighting:GetChildren()) do
+                if v:IsA("PostEffect") then
+                    v.Enabled = false
+                end
+            end
+            Rayfield:Notify({
+                Title = "Đã tắt hiệu ứng hậu kỳ",
+                Content = "Bloom, blur đã được tắt",
+                Duration = 3,
+            })
+        end,
+    })
+    
+    MainTab:CreateButton({
+        Name = "🌑 Tắt bóng đổ toàn cầu",
+        Callback = function()
+            STATE.SHADOW = true
+            Lighting.GlobalShadows = false
+            Rayfield:Notify({
+                Title = "Đã tắt bóng đổ",
+                Content = "Bóng đổ toàn cầu đã tắt",
+                Duration = 3,
+            })
+        end,
+    })
+    
+    -- Tab Server
+    local ServerTab = Window:CreateTab("Server", 4483345990)
+    
+    ServerTab:CreateButton({
+        Name = "🔍 Tìm server ít người",
+        Callback = function()
+            Rayfield:Notify({
+                Title = "Đang tìm server...",
+                Content = "Đang tìm server có ít người nhất",
+                Duration = 3,
+            })
+            
+            local url =
+                "https://games.roblox.com/v1/games/"..
+                game.PlaceId.."/servers/Public?limit=100"
+
+            local success, result = pcall(function()
+                local data = HttpService:JSONDecode(game:HttpGet(url))
+                table.sort(data.data,function(a,b)
+                    return a.playing < b.playing
+                end)
+
+                if data.data[1] then
+                    TeleportService:TeleportToPlaceInstance(
+                        game.PlaceId,
+                        data.data[1].id,
+                        player
+                    )
+                end
+            end)
+            
+            if not success then
+                Rayfield:Notify({
+                    Title = "Lỗi",
+                    Content = "Không thể tìm server",
+                    Duration = 5,
+                })
+            end
+        end,
+    })
+    
+    ServerTab:CreateButton({
+        Name = "🔄 Vào server mới",
+        Callback = function()
+            Rayfield:Notify({
+                Title = "Đang chuyển server...",
+                Content = "Chuẩn bị vào server mới",
+                Duration = 3,
+            })
+            TeleportService:Teleport(game.PlaceId)
+        end,
+    })
+    
+    -- Tab Cài đặt
+    local SettingsTab = Window:CreateTab("Cài Đặt", 4483341353)
+    
+    SettingsTab:CreateButton({
+        Name = "📊 Kiểm tra hiệu suất",
+        Callback = function()
+            local fps = math.floor(1/RunService.RenderStepped:Wait())
+            local memory = math.floor(collectgarbage("count"))
+            
+            Rayfield:Notify({
+                Title = "Hiệu suất hiện tại",
+                Content = "FPS: "..fps.."\nBộ nhớ: "..memory.." KB\n\nTác giả: Dương Minh Thuận",
+                Duration = 5,
+            })
+        end,
+    })
+    
+    SettingsTab:CreateLabel("🎮 Điều khiển GUI")
+    
+    SettingsTab:CreateButton({
+        Name = "👓 Thu nhỏ GUI",
+        Callback = function()
+            Window:Minimize()
+            Rayfield:Notify({
+                Title = "Đã thu nhỏ GUI",
+                Content = "Nhấn vào icon 🥼👓 để mở lại",
+                Duration = 3,
+            })
+        end,
+    })
+    
+    SettingsTab:CreateButton({
+        Name = "🔓 Mở rộng GUI",
+        Callback = function()
+            Window:Restore()
+        end,
+    })
+    
+    SettingsTab:CreateButton({
+        Name = "📜 Hiển thị credit",
+        Callback = function()
+            Rayfield:Notify({
+                Title = "MINH THUẬN GUI FIXLAG",
+                Content = "Được tạo bởi: Dương Minh Thuận\nPhiên bản: 2.0\nIcon: 🥼👓",
+                Duration = 5,
+            })
+        end,
+    })
+    
+    SettingsTab:CreateButton({
+        Name = "🔄 Refresh GUI",
+        Callback = function()
+            Rayfield:Notify({
+                Title = "Refresh GUI",
+                Content = "Đang tải lại giao diện...",
+                Duration = 2,
+            })
+            Window:Destroy()
+            task.wait(0.5)
+            createMainGUI()
+        end,
+    })
+    
+    -- Thêm watermark
+    local watermark = Instance.new("TextLabel")
+    watermark.Name = "Watermark"
+    watermark.Text = "Minh Thuận GUI FixLag | Dương Minh Thuận"
+    watermark.TextColor3 = Color3.fromRGB(255, 255, 255)
+    watermark.BackgroundColor3 = Color3.fromRGB(0, 0, 0)
+    watermark.BackgroundTransparency = 0.5
+    watermark.Size = UDim2.new(0, 300, 0, 30)
+    watermark.Position = UDim2.new(0.5, -150, 0, 10)
+    watermark.Font = Enum.Font.Gotham
+    watermark.TextSize = 14
+    watermark.Visible = true
+    watermark.Parent = game.CoreGui
+    
+    -- Thông báo khi load xong
+    task.wait(1)
+    Rayfield:Notify({
+        Title = "MINH THUẬN GUI FIXLAG",
+        Content = "Chào mừng đến với GUI FixLag!\nTác giả: Dương Minh Thuận",
+        Duration = 5,
+    })
+    
+    print("✅ MINH THUẬN GUI FIXLAG ĐÃ HOÀN THÀNH TẢI")
+end
+
+--------------------------------------------------
+-- AUTO-EXECUTE
+--------------------------------------------------
+task.spawn(function()
+    -- Chờ một chút để đảm bảo mọi thứ đã sẵn sàng
+    task.wait(0.5)
+    
+    -- Hiển thị thông báo trong console
+    print("🔥 MINH THUẬN GUI FIXLAG ĐÃ SẴN SÀNG")
+    print("🎮 Tác giả: Dương Minh Thuận")
+    print("📞 Phiên bản: 2.0 Complete Edition")
+    print("🕒 " .. os.date("%H:%M:%S %d/%m/%Y"))
+    
+    -- Credit sẽ tự động hiển thị và sau đó load GUI chính
+    -- (Đã được xử lý trong phần credit display)
+end)
+
+--------------------------------------------------
+-- CÁC TÍNH NĂNG TỰ ĐỘNG BẢO VỆ
+--------------------------------------------------
+-- Tự động áp dụng một số tối ưu khi join game
+task.spawn(function()
+    task.wait(5) -- Chờ 5 giây sau khi join game
+    
+    -- Tự động tắt shadow để tăng FPS
+    Lighting.GlobalShadows = false
+    print("✅ Đã tự động tắt Global Shadows")
+    
+    -- Tự động tắt một số post effect phổ biến
+    for _,v in ipairs(Lighting:GetChildren()) do
+        if v:IsA("BloomEffect") or v:IsA("BlurEffect") or v:IsA("ColorCorrectionEffect") then
+            v.Enabled = false
+        end
+    end
+    print("✅ Đã tự động tắt Post Effects")
+end)
+
+-- Hook để chống anti-cheat detection
+local originalNamecall
+originalNamecall = hookmetamethod(game, "__namecall", function(self, ...)
+    local method = getnamecallmethod()
+    local args = {...}
+    
+    -- Chống phát hiện khi tắt âm thanh
+    if method == "Play" and self:IsA("Sound") then
+        if STATE.SOUND then
+            return nil
+        end
+    end
+    
+    return originalNamecall(self, ...)
+end)
+
+print("🛡️ Anti-detection hooks đã được kích hoạt")
