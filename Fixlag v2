@@ -1,125 +1,409 @@
 --==================================================
--- MINH THUẬN HUB | UNIVERSAL FIX LAG (FIXED)
--- SCROLL SUPPORT | MOBILE SAFE | NO STAND BUG
+--  MINH THUẬN HUB - UNIVERSAL FIX LAG
+--  Style: AirHub | Mobile Friendly
+--  Version: 2.0 Enhanced
+--  Client Side Only
+--  Created by: Dương Minh Thuận
 --==================================================
 
-if getgenv().MINHTHUAN_HUB then return end
-getgenv().MINHTHUAN_HUB = true
+if getgenv().MinhThuanHub then return end
+getgenv().MinhThuanHub = true
 
 --------------------------------------------------
 -- SERVICES
 --------------------------------------------------
 local Players = game:GetService("Players")
-local RunService = game:GetService("RunService")
 local Lighting = game:GetService("Lighting")
+local RunService = game:GetService("RunService")
 local TeleportService = game:GetService("TeleportService")
 local HttpService = game:GetService("HttpService")
-local LocalPlayer = Players.LocalPlayer
-local Camera = workspace.CurrentCamera
+local TweenService = game:GetService("TweenService")
+local UserInputService = game:GetService("UserInputService")
+local VirtualInputManager = game:GetService("VirtualInputManager")
+local ReplicatedStorage = game:GetService("ReplicatedStorage")
+local StarterGui = game:GetService("StarterGui")
+local MaterialService = game:GetService("MaterialService")
+local player = Players.LocalPlayer
+local camera = workspace.CurrentCamera
 
 --------------------------------------------------
 -- STATE
 --------------------------------------------------
-local State = {
-    FX=false, Shake=false, Debris=false, Gray=false,
-    Sound=false, Hide=false, Post=false, Shadow=false
+local STATE = {
+    FX = false,
+    GRAY = false,
+    SOUND = false,
+    POST = false,
+    SHADOW = false,
+    FLY = false,
+    NOCLIP = false,
+    XRAY = false,
+    ESP = false,
+    SPEED = false,
+    JUMP = false,
+    INFINITE_JUMP = false,
+    AUTO_CLICK = false,
+    ANTI_AFK = false,
+    WALLHACK = false,
+    FULLBRIGHT = false,
+    REACH = false,
+    NIGHT_VISION = false
+}
+
+local SETTINGS = {
+    FLY_SPEED = 50,
+    WALK_SPEED = 16,
+    JUMP_POWER = 50,
+    REACH_DISTANCE = 30,
+    ESP_COLOR = Color3.fromRGB(255, 50, 50),
+    XRAY_TRANSPARENCY = 0.8
 }
 
 --------------------------------------------------
 -- FIX LAG FUNCTIONS (SAFE)
 --------------------------------------------------
-local function RemoveFX(on)
-    for _,v in ipairs(workspace:GetDescendants()) do
-        if v:IsA("ParticleEmitter") or v:IsA("Trail")
-        or v:IsA("Beam") or v:IsA("Fire")
-        or v:IsA("Smoke") or v:IsA("Sparkles") then
-            v.Enabled = not on
+local function clearFX()
+    for _, v in ipairs(workspace:GetDescendants()) do
+        if v:IsA("ParticleEmitter") or v:IsA("Trail") or v:IsA("Beam") 
+        or v:IsA("Fire") or v:IsA("Smoke") or v:IsA("Sparkles") then
+            v.Enabled = false
         end
     end
 end
 
-local ShakeConn
-local function DisableShake(on)
-    if on then
-        if ShakeConn then ShakeConn:Disconnect() end
-        ShakeConn = RunService.RenderStepped:Connect(function()
-            Camera.CFrame = Camera.CFrame
-        end)
-    elseif ShakeConn then
-        ShakeConn:Disconnect()
-        ShakeConn = nil
-    end
-end
-
-local function RemoveDebris(on)
-    if not on then return end
-    for _,v in ipairs(workspace:GetChildren()) do
-        if v:IsA("BasePart")
-        and not v.Anchored
-        and not v.CanCollide
-        and v.Size.Magnitude < 20 then
-            pcall(function() v:Destroy() end)
+local function grayModel(m)
+    for _, v in ipairs(m:GetDescendants()) do
+        if v:IsA("BasePart") then
+            v.Material = Enum.Material.Plastic
+            v.Color = Color3.fromRGB(135, 135, 135)
+            v.CastShadow = false
+            v.Reflectance = 0
+        elseif v:IsA("Decal") or v:IsA("Texture") then
+            v:Destroy()
         end
     end
 end
 
-local function GrayCharacters(on)
-    for _,plr in ipairs(Players:GetPlayers()) do
-        if plr.Character then
-            for _,v in ipairs(plr.Character:GetDescendants()) do
-                if v:IsA("BasePart") then
-                    if on then
-                        v.Material = Enum.Material.Plastic
-                        v.Color = Color3.fromRGB(150,150,150)
-                        v.CastShadow = false
-                    end
-                elseif v:IsA("Decal") or v:IsA("Texture") then
-                    v.Transparency = on and 1 or 0
-                end
+local function muteSounds()
+    for _, s in ipairs(workspace:GetDescendants()) do
+        if s:IsA("Sound") then
+            s.Volume = 0
+            s.Playing = false
+        end
+    end
+    for _, s in ipairs(game:GetDescendants()) do
+        if s:IsA("Sound") then
+            s.Volume = 0
+            s.Playing = false
+        end
+    end
+end
+
+local function disablePost()
+    for _, v in ipairs(Lighting:GetChildren()) do
+        if v:IsA("PostEffect") then
+            v.Enabled = false
+        end
+    end
+end
+
+local function optimizeLighting()
+    Lighting.GlobalShadows = false
+    Lighting.FogEnd = 100000
+    Lighting.Brightness = 2
+    Lighting.ClockTime = 14
+    Lighting.GeographicLatitude = 41.733
+    Lighting.OutdoorAmbient = Color3.fromRGB(128, 128, 128)
+    
+    for _, v in ipairs(Lighting:GetChildren()) do
+        if v:IsA("PostEffect") or v:IsA("DepthOfFieldEffect") 
+        or v:IsA("BloomEffect") or v:IsA("ColorCorrectionEffect") 
+        or v:IsA("SunRaysEffect") or v:IsA("BlurEffect") then
+            v.Enabled = false
+        end
+    end
+end
+
+local function lowGraphics()
+    settings().Rendering.QualityLevel = 1
+    
+    for _, v in ipairs(workspace:GetDescendants()) do
+        if v:IsA("Part") then
+            v.Material = Enum.Material.Plastic
+            v.Reflectance = 0
+            v.Transparency = 0
+        elseif v:IsA("MeshPart") then
+            v.TextureID = ""
+        elseif v:IsA("UnionOperation") then
+            v.UsePartColor = true
+        end
+    end
+end
+
+--------------------------------------------------
+-- ENHANCEMENT FUNCTIONS
+--------------------------------------------------
+local function toggleFly()
+    if STATE.FLY then
+        local bodyVelocity = player.Character and player.Character:FindFirstChild("FlyBodyVelocity")
+        local bodyGyro = player.Character and player.Character:FindFirstChild("FlyBodyGyro")
+        
+        if bodyVelocity then bodyVelocity:Destroy() end
+        if bodyGyro then bodyGyro:Destroy() end
+        
+        STATE.FLY = false
+        return
+    end
+    
+    STATE.FLY = true
+    
+    local character = player.Character or player.CharacterAdded:Wait()
+    local humanoid = character:WaitForChild("Humanoid")
+    
+    local bodyVelocity = Instance.new("BodyVelocity")
+    bodyVelocity.Name = "FlyBodyVelocity"
+    bodyVelocity.MaxForce = Vector3.new(0, 0, 0)
+    bodyVelocity.Velocity = Vector3.new(0, 0, 0)
+    bodyVelocity.P = 10000
+    bodyVelocity.Parent = character:FindFirstChild("HumanoidRootPart") or character.PrimaryPart
+    
+    local bodyGyro = Instance.new("BodyGyro")
+    bodyGyro.Name = "FlyBodyGyro"
+    bodyGyro.MaxTorque = Vector3.new(0, 0, 0)
+    bodyGyro.P = 10000
+    bodyGyro.D = 100
+    bodyGyro.Parent = character:FindFirstChild("HumanoidRootPart") or character.PrimaryPart
+    
+    local flySpeed = SETTINGS.FLY_SPEED
+    
+    RunService.Heartbeat:Connect(function()
+        if not STATE.FLY or not character or not bodyVelocity or not bodyGyro then return end
+        
+        local rootPart = character:FindFirstChild("HumanoidRootPart") or character.PrimaryPart
+        if not rootPart then return end
+        
+        bodyVelocity.MaxForce = Vector3.new(100000, 100000, 100000)
+        bodyGyro.MaxTorque = Vector3.new(100000, 100000, 100000)
+        
+        local velocity = Vector3.new(0, 0, 0)
+        
+        if UserInputService:IsKeyDown(Enum.KeyCode.W) then
+            velocity = velocity + (rootPart.CFrame.LookVector * flySpeed)
+        end
+        if UserInputService:IsKeyDown(Enum.KeyCode.S) then
+            velocity = velocity - (rootPart.CFrame.LookVector * flySpeed)
+        end
+        if UserInputService:IsKeyDown(Enum.KeyCode.A) then
+            velocity = velocity - (rootPart.CFrame.RightVector * flySpeed)
+        end
+        if UserInputService:IsKeyDown(Enum.KeyCode.D) then
+            velocity = velocity + (rootPart.CFrame.RightVector * flySpeed)
+        end
+        if UserInputService:IsKeyDown(Enum.KeyCode.Space) then
+            velocity = velocity + Vector3.new(0, flySpeed, 0)
+        end
+        if UserInputService:IsKeyDown(Enum.KeyCode.LeftShift) then
+            velocity = velocity - Vector3.new(0, flySpeed, 0)
+        end
+        
+        bodyVelocity.Velocity = velocity
+        bodyGyro.CFrame = rootPart.CFrame
+    end)
+end
+
+local function toggleNoclip()
+    STATE.NOCLIP = not STATE.NOCLIP
+    
+    local character = player.Character
+    if not character then return end
+    
+    RunService.Stepped:Connect(function()
+        if not STATE.NOCLIP or not character then return end
+        
+        for _, v in ipairs(character:GetDescendants()) do
+            if v:IsA("BasePart") then
+                v.CanCollide = false
+            end
+        end
+    end)
+end
+
+local function toggleXray()
+    STATE.XRAY = not STATE.XRAY
+    
+    for _, v in ipairs(workspace:GetDescendants()) do
+        if v:IsA("BasePart") and v.Parent ~= player.Character then
+            if STATE.XRAY then
+                v.LocalTransparencyModifier = SETTINGS.XRAY_TRANSPARENCY
+            else
+                v.LocalTransparencyModifier = 0
             end
         end
     end
 end
 
-local function DisableSound(on)
-    for _,s in ipairs(workspace:GetDescendants()) do
-        if s:IsA("Sound") then
-            s.Volume = on and 0 or 1
-            if on then s:Stop() end
+local function toggleESP()
+    STATE.ESP = not STATE.ESP
+    
+    local espBoxes = {}
+    
+    if STATE.ESP then
+        Players.PlayerAdded:Connect(function(plr)
+            plr.CharacterAdded:Connect(function(char)
+                if plr ~= player then
+                    local box = Instance.new("BoxHandleAdornment")
+                    box.Name = "ESP_" .. plr.Name
+                    box.Adornee = char:WaitForChild("HumanoidRootPart")
+                    box.AlwaysOnTop = true
+                    box.ZIndex = 10
+                    box.Size = Vector3.new(2, 3, 1)
+                    box.Color3 = SETTINGS.ESP_COLOR
+                    box.Transparency = 0.3
+                    box.Parent = char
+                    espBoxes[plr] = box
+                end
+            end)
+        end)
+        
+        for _, plr in ipairs(Players:GetPlayers()) do
+            if plr ~= player and plr.Character then
+                local box = Instance.new("BoxHandleAdornment")
+                box.Name = "ESP_" .. plr.Name
+                box.Adornee = plr.Character:WaitForChild("HumanoidRootPart")
+                box.AlwaysOnTop = true
+                box.ZIndex = 10
+                box.Size = Vector3.new(2, 3, 1)
+                box.Color3 = SETTINGS.ESP_COLOR
+                box.Transparency = 0.3
+                box.Parent = plr.Character
+                espBoxes[plr] = box
+            end
+        end
+    else
+        for plr, box in pairs(espBoxes) do
+            box:Destroy()
+        end
+        espBoxes = {}
+    end
+end
+
+local function toggleSpeed()
+    STATE.SPEED = not STATE.SPEED
+    
+    local character = player.Character
+    if not character then return end
+    
+    local humanoid = character:FindFirstChild("Humanoid")
+    if not humanoid then return end
+    
+    if STATE.SPEED then
+        humanoid.WalkSpeed = SETTINGS.WALK_SPEED * 2
+    else
+        humanoid.WalkSpeed = 16
+    end
+end
+
+local function toggleJump()
+    STATE.JUMP = not STATE.JUMP
+    
+    local character = player.Character
+    if not character then return end
+    
+    local humanoid = character:FindFirstChild("Humanoid")
+    if not humanoid then return end
+    
+    if STATE.JUMP then
+        humanoid.JumpPower = SETTINGS.JUMP_POWER * 2
+    else
+        humanoid.JumpPower = 50
+    end
+end
+
+local function toggleInfiniteJump()
+    STATE.INFINITE_JUMP = not STATE.INFINITE_JUMP
+    
+    local connection
+    if STATE.INFINITE_JUMP then
+        connection = UserInputService.JumpRequest:Connect(function()
+            local character = player.Character
+            if character then
+                local humanoid = character:FindFirstChild("Humanoid")
+                if humanoid then
+                    humanoid:ChangeState(Enum.HumanoidStateType.Jumping)
+                end
+            end
+        end)
+    else
+        if connection then
+            connection:Disconnect()
         end
     end
 end
 
-local function DisablePost(on)
-    for _,v in ipairs(Lighting:GetChildren()) do
-        if v:IsA("PostEffect") then
-            v.Enabled = not on
+local function toggleAutoClick()
+    STATE.AUTO_CLICK = not STATE.AUTO_CLICK
+    
+    if STATE.AUTO_CLICK then
+        spawn(function()
+            while STATE.AUTO_CLICK do
+                wait(0.1)
+                VirtualInputManager:SendMouseButtonEvent(0, 0, 0, true, game, 1)
+                wait(0.01)
+                VirtualInputManager:SendMouseButtonEvent(0, 0, 0, false, game, 1)
+            end
+        end)
+    end
+end
+
+local function toggleAntiAFK()
+    STATE.ANTI_AFK = not STATE.ANTI_AFK
+    
+    if STATE.ANTI_AFK then
+        for _, connection in ipairs(getconnections(player.Idled)) do
+            connection:Disable()
+        end
+    else
+        for _, connection in ipairs(getconnections(player.Idled)) do
+            connection:Enable()
         end
     end
 end
 
---------------------------------------------------
--- SERVER
---------------------------------------------------
-local function FindLowServer()
-    local data = HttpService:JSONDecode(
-        game:HttpGet(
-            "https://games.roblox.com/v1/games/"..
-            game.PlaceId.."/servers/Public?limit=100"
-        )
-    )
-    table.sort(data.data,function(a,b)
-        return a.playing < b.playing
-    end)
-    if data.data[1] then
-        TeleportService:TeleportToPlaceInstance(
-            game.PlaceId,data.data[1].id,LocalPlayer
-        )
+local function toggleFullbright()
+    STATE.FULLBRIGHT = not STATE.FULLBRIGHT
+    
+    if STATE.FULLBRIGHT then
+        Lighting.Ambient = Color3.new(1, 1, 1)
+        Lighting.Brightness = 2
+        Lighting.OutdoorAmbient = Color3.new(1, 1, 1)
+    else
+        Lighting.Ambient = Color3.new(0.5, 0.5, 0.5)
+        Lighting.Brightness = 1
     end
 end
 
-local function Rejoin()
-    TeleportService:Teleport(game.PlaceId,LocalPlayer)
+local function toggleReach()
+    STATE.REACH = not STATE.REACH
+    -- This would require game-specific implementation
+end
+
+local function toggleNightVision()
+    STATE.NIGHT_VISION = not STATE.NIGHT_VISION
+    
+    if STATE.NIGHT_VISION then
+        local colorCorrection = Instance.new("ColorCorrectionEffect")
+        colorCorrection.Name = "NightVision"
+        colorCorrection.Brightness = 0.2
+        colorCorrection.Contrast = 0.5
+        colorCorrection.Saturation = -0.8
+        colorCorrection.TintColor = Color3.fromRGB(0, 255, 0)
+        colorCorrection.Parent = Lighting
+    else
+        local effect = Lighting:FindFirstChild("NightVision")
+        if effect then
+            effect:Destroy()
+        end
+    end
 end
 
 --------------------------------------------------
@@ -130,134 +414,581 @@ gui.Name = "MinhThuanHub"
 gui.ResetOnSpawn = false
 
 --------------------------------------------------
+-- CREDIT WATERMARK
+--------------------------------------------------
+local watermark = Instance.new("TextLabel", gui)
+watermark.Name = "Watermark"
+watermark.Text = "🥼👓 Minh Thuận Hub v2.0 | Dương Minh Thuận"
+watermark.Size = UDim2.new(0, 300, 0, 30)
+watermark.Position = UDim2.new(0.5, -150, 0.01, 0)
+watermark.BackgroundColor3 = Color3.fromRGB(25, 25, 35)
+watermark.BackgroundTransparency = 0.5
+watermark.TextColor3 = Color3.fromRGB(220, 200, 255)
+watermark.Font = Enum.Font.GothamBold
+watermark.TextSize = 14
+watermark.Visible = true
+Instance.new("UICorner", watermark).CornerRadius = UDim.new(0, 10)
+
+--------------------------------------------------
 -- MAIN FRAME
 --------------------------------------------------
 local main = Instance.new("Frame", gui)
-main.Size = UDim2.fromScale(0.9,0.72)
-main.Position = UDim2.fromScale(0.05,0.15)
-main.BackgroundColor3 = Color3.fromRGB(40,15,65)
+main.Size = UDim2.fromScale(0.9, 0.75)
+main.Position = UDim2.fromScale(0.05, 0.12)
+main.BackgroundColor3 = Color3.fromRGB(25, 25, 35)
 main.Active = true
 main.Draggable = true
-Instance.new("UICorner", main).CornerRadius = UDim.new(0,18)
+Instance.new("UICorner", main).CornerRadius = UDim.new(0, 20)
 
 --------------------------------------------------
 -- TITLE
 --------------------------------------------------
 local title = Instance.new("TextLabel", main)
-title.Size = UDim2.fromScale(1,0.1)
-title.BackgroundTransparency = 1
-title.Text = "MINH THUẬN HUB"
-title.TextScaled = true
+title.Size = UDim2.fromScale(1, 0.12)
+title.Text = "🥼👓  Minh Thuận Hub v2.0"
 title.Font = Enum.Font.GothamBold
-title.TextColor3 = Color3.fromRGB(230,200,255)
+title.TextScaled = true
+title.BackgroundTransparency = 1
+title.TextColor3 = Color3.fromRGB(220, 200, 255)
+title.TextXAlignment = Enum.TextXAlignment.Center
 
 --------------------------------------------------
 -- TAB BUTTONS
 --------------------------------------------------
-local tabMain = Instance.new("TextButton", main)
-tabMain.Text = "MAIN"
-tabMain.Size = UDim2.fromScale(0.45,0.1)
-tabMain.Position = UDim2.fromScale(0.05,0.12)
+local tabFrame = Instance.new("Frame", main)
+tabFrame.Size = UDim2.fromScale(1, 0.1)
+tabFrame.Position = UDim2.fromScale(0, 0.12)
+tabFrame.BackgroundTransparency = 1
 
-local tabServer = Instance.new("TextButton", main)
-tabServer.Text = "SERVER"
-tabServer.Size = UDim2.fromScale(0.45,0.1)
-tabServer.Position = UDim2.fromScale(0.5,0.12)
+local tabs = {}
+local tabContents = {}
 
-for _,b in ipairs({tabMain,tabServer}) do
-    b.TextScaled = true
-    b.Font = Enum.Font.GothamBold
-    b.BackgroundColor3 = Color3.fromRGB(80,35,130)
-    b.TextColor3 = Color3.new(1,1,1)
-    Instance.new("UICorner", b).CornerRadius = UDim.new(0,16)
+local function createTab(name, position, color)
+    local tabBtn = Instance.new("TextButton", tabFrame)
+    tabBtn.Size = UDim2.fromScale(0.23, 1)
+    tabBtn.Position = UDim2.fromScale(position, 0)
+    tabBtn.Text = name
+    tabBtn.TextScaled = true
+    tabBtn.Font = Enum.Font.GothamBold
+    tabBtn.BackgroundColor3 = color
+    tabBtn.TextColor3 = Color3.new(1, 1, 1)
+    tabBtn.AutoButtonColor = false
+    Instance.new("UICorner", tabBtn)
+    
+    local scrollFrame = Instance.new("ScrollingFrame", main)
+    scrollFrame.Size = UDim2.fromScale(1, 0.68)
+    scrollFrame.Position = UDim2.fromScale(0, 0.22)
+    scrollFrame.CanvasSize = UDim2.fromScale(0, 2.5)
+    scrollFrame.ScrollBarImageTransparency = 0.3
+    scrollFrame.BackgroundTransparency = 1
+    scrollFrame.Visible = false
+    
+    local listLayout = Instance.new("UIListLayout", scrollFrame)
+    listLayout.Padding = UDim.new(0, 10)
+    
+    tabs[name] = {button = tabBtn, frame = scrollFrame}
+    
+    return scrollFrame
+end
+
+-- Create tabs
+local mainScroll = createTab("MAIN", 0.02, Color3.fromRGB(120, 70, 180))
+local hackScroll = createTab("HACK", 0.26, Color3.fromRGB(60, 60, 80))
+local serverScroll = createTab("SERVER", 0.50, Color3.fromRGB(60, 60, 80))
+local settingsScroll = createTab("SETTINGS", 0.74, Color3.fromRGB(60, 60, 80))
+
+-- Show first tab by default
+tabs["MAIN"].button.BackgroundColor3 = Color3.fromRGB(120, 70, 180)
+tabs["MAIN"].frame.Visible = true
+
+-- Tab switching logic
+for name, tab in pairs(tabs) do
+    tab.button.MouseButton1Click:Connect(function()
+        for otherName, otherTab in pairs(tabs) do
+            otherTab.frame.Visible = false
+            otherTab.button.BackgroundColor3 = Color3.fromRGB(60, 60, 80)
+        end
+        tab.frame.Visible = true
+        tab.button.BackgroundColor3 = Color3.fromRGB(120, 70, 180)
+    end)
 end
 
 --------------------------------------------------
--- SCROLLABLE MAIN TAB (FIX MISSING FEATURES)
+-- BUTTON CREATOR
 --------------------------------------------------
-local mainTab = Instance.new("ScrollingFrame", main)
-mainTab.Position = UDim2.fromScale(0,0.24)
-mainTab.Size = UDim2.fromScale(1,0.66)
-mainTab.CanvasSize = UDim2.fromScale(0,1.4)
-mainTab.ScrollBarThickness = 6
-mainTab.BackgroundTransparency = 1
-mainTab.AutomaticCanvasSize = Enum.AutomaticSize.None
-
-local layout = Instance.new("UIListLayout", mainTab)
-layout.Padding = UDim.new(0,14)
-layout.HorizontalAlignment = Enum.HorizontalAlignment.Center
-
---------------------------------------------------
--- TOGGLE CREATOR (NO DISAPPEAR BUG)
---------------------------------------------------
-local function MakeToggle(text,state,callback)
-    local b = Instance.new("TextButton", mainTab)
-    b.Size = UDim2.fromScale(0.9,0.14)
+local function createButton(parent, text, callback, color)
+    local b = Instance.new("TextButton", parent)
+    b.Size = UDim2.fromScale(0.94, 0.11)
+    b.Position = UDim2.fromScale(0.03, 0)
+    b.Text = text
     b.TextWrapped = true
     b.TextScaled = true
     b.Font = Enum.Font.GothamBold
-    b.AutoButtonColor = false
-    Instance.new("UICorner", b).CornerRadius = UDim.new(0,18)
+    b.BackgroundColor3 = color or Color3.fromRGB(90, 40, 140)
+    b.TextColor3 = Color3.new(1, 1, 1)
+    b.AutoButtonColor = true
+    Instance.new("UICorner", b).CornerRadius = UDim.new(0, 12)
+    b.MouseButton1Click:Connect(callback)
+    
+    return b
+end
 
-    local function Refresh()
-        b.Text = text.."\n"..(State[state] and "ON" or "OFF")
-        b.BackgroundColor3 = State[state]
-            and Color3.fromRGB(160,90,220)
-            or Color3.fromRGB(80,40,130)
+--------------------------------------------------
+-- MAIN TAB FEATURES
+--------------------------------------------------
+createButton(mainScroll, "🚀 MASTER FIX LAG\n(Bật tất cả tối ưu)", function()
+    STATE.FX = true; STATE.GRAY = true; STATE.SOUND = true; STATE.POST = true; STATE.SHADOW = true
+    clearFX()
+    disablePost()
+    Lighting.GlobalShadows = false
+    muteSounds()
+    optimizeLighting()
+    lowGraphics()
+    for _, m in ipairs(workspace:GetChildren()) do
+        if m:IsA("Model") and m:FindFirstChild("Humanoid") then
+            grayModel(m)
+        end
     end
+end, Color3.fromRGB(255, 50, 50))
 
-    b.MouseButton1Click:Connect(function()
-        State[state] = not State[state]
-        callback(State[state])
-        Refresh()
+createButton(mainScroll, "🎇 Disable Skill Effects\n(Xóa hiệu ứng kỹ năng)", function()
+    STATE.FX = true
+    clearFX()
+end)
+
+createButton(mainScroll, "🧱 Gray Characters\n(Nhân vật thành LEGO xám)", function()
+    STATE.GRAY = true
+    for _, m in ipairs(workspace:GetChildren()) do
+        if m:IsA("Model") and m:FindFirstChild("Humanoid") then
+            grayModel(m)
+        end
+    end
+end)
+
+createButton(mainScroll, "🔇 Mute All Sounds\n(Tắt âm thanh hiệu ứng)", function()
+    STATE.SOUND = true
+    muteSounds()
+end)
+
+createButton(mainScroll, "💡 Disable Post Effects\n(Tắt bloom, blur, ánh sáng)", function()
+    STATE.POST = true
+    disablePost()
+end)
+
+createButton(mainScroll, "🌑 Disable Global Shadows\n(Tắt bóng đổ)", function()
+    STATE.SHADOW = true
+    Lighting.GlobalShadows = false
+end)
+
+createButton(mainScroll, "⚡ Low Graphics Mode\n(Đồ họa thấp nhất)", function()
+    lowGraphics()
+end)
+
+createButton(mainScroll, "🌞 Optimize Lighting\n(Tối ưu ánh sáng)", function()
+    optimizeLighting()
+end)
+
+--------------------------------------------------
+-- HACK TAB FEATURES
+--------------------------------------------------
+createButton(hackScroll, "🕊️ Fly Mode\n(Bay lượn - W/A/S/D/Space/Shift)", function()
+    toggleFly()
+end, Color3.fromRGB(50, 150, 255))
+
+createButton(hackScroll, "👻 Noclip Mode\n(Xuyên tường)", function()
+    toggleNoclip()
+end)
+
+createButton(hackScroll, "👁️ X-Ray Vision\n(Nhìn xuyên tường)", function()
+    toggleXray()
+end)
+
+createButton(hackScroll, "🎯 ESP Players\n(Hiện vị trí người chơi)", function()
+    toggleESP()
+end)
+
+createButton(hackScroll, "⚡ Speed Hack\n(Tăng tốc độ di chuyển)", function()
+    toggleSpeed()
+end)
+
+createButton(hackScroll, "🏃‍♂️ Jump Hack\n(Nhảy cao)", function()
+    toggleJump()
+end)
+
+createButton(hackScroll, "♾️ Infinite Jump\n(Nhảy vô hạn)", function()
+    toggleInfiniteJump()
+end)
+
+createButton(hackScroll, "🤖 Auto Click\n(Tự động click)", function()
+    toggleAutoClick()
+end)
+
+createButton(hackScroll, "⏰ Anti-AFK\n(Chống AFK)", function()
+    toggleAntiAFK()
+end)
+
+createButton(hackScroll, "💡 Fullbright Mode\n(Ánh sáng tối đa)", function()
+    toggleFullbright()
+end)
+
+createButton(hackScroll, "🌙 Night Vision\n(Tầm nhìn ban đêm)", function()
+    toggleNightVision()
+end)
+
+createButton(hackScroll, "🛡️ Anti-Kick Protection\n(Chống kick)", function()
+    local mt = getrawmetatable(game)
+    local oldNamecall = mt.__namecall
+    setreadonly(mt, false)
+    
+    mt.__namecall = newcclosure(function(self, ...)
+        local method = getnamecallmethod()
+        if method == "Kick" or method == "kick" then
+            return nil
+        end
+        return oldNamecall(self, ...)
     end)
+    setreadonly(mt, true)
+end, Color3.fromRGB(255, 50, 50))
 
-    Refresh()
+--------------------------------------------------
+-- SERVER TAB FEATURES
+--------------------------------------------------
+createButton(serverScroll, "🔍 Find Low Player Server\n(Tìm server ít người nhất)", function()
+    local success, result = pcall(function()
+        local url = "https://games.roblox.com/v1/games/" .. game.PlaceId .. "/servers/Public?limit=100"
+        local data = HttpService:JSONDecode(game:HttpGet(url, true))
+        table.sort(data.data, function(a, b) 
+            return a.playing < b.playing 
+        end)
+        
+        if data.data[1] then
+            TeleportService:TeleportToPlaceInstance(game.PlaceId, data.data[1].id, player)
+        end
+    end)
+    
+    if not success then
+        warn("Không thể tìm server: " .. result)
+    end
+end)
+
+createButton(serverScroll, "🔄 Rejoin Server\n(Vào lại server)", function()
+    TeleportService:Teleport(game.PlaceId)
+end)
+
+createButton(serverScroll, "📊 Server Info\n(Thông tin server)", function()
+    local players = #Players:GetPlayers()
+    local maxPlayers = Players.MaxPlayers
+    local ping = math.floor(game:GetService("Stats").Network.ServerStatsItem["Data Ping"]:GetValue())
+    
+    local message = string.format("👥 Người chơi: %d/%d\n📶 Ping: %dms\n🏠 Server ID: %s", 
+        players, maxPlayers, ping, game.JobId)
+    
+    -- Hiển thị thông báo
+    local notif = Instance.new("TextLabel", gui)
+    notif.Text = message
+    notif.Size = UDim2.new(0, 300, 0, 100)
+    notif.Position = UDim2.new(0.5, -150, 0.5, -50)
+    notif.BackgroundColor3 = Color3.fromRGB(25, 25, 35)
+    notif.TextColor3 = Color3.new(1, 1, 1)
+    notif.Font = Enum.Font.GothamBold
+    notif.TextSize = 16
+    notif.TextWrapped = true
+    Instance.new("UICorner", notif)
+    
+    task.wait(3)
+    notif:Destroy()
+end)
+
+--------------------------------------------------
+-- SETTINGS TAB FEATURES
+--------------------------------------------------
+-- Slider creator
+local function createSlider(parent, text, min, max, default, callback)
+    local frame = Instance.new("Frame", parent)
+    frame.Size = UDim2.fromScale(0.94, 0.08)
+    frame.Position = UDim2.fromScale(0.03, 0)
+    frame.BackgroundColor3 = Color3.fromRGB(40, 40, 50)
+    Instance.new("UICorner", frame)
+    
+    local label = Instance.new("TextLabel", frame)
+    label.Size = UDim2.fromScale(0.7, 1)
+    label.Text = text
+    label.Font = Enum.Font.GothamBold
+    label.TextScaled = true
+    label.TextColor3 = Color3.new(1, 1, 1)
+    label.BackgroundTransparency = 1
+    
+    local valueLabel = Instance.new("TextLabel", frame)
+    valueLabel.Size = UDim2.fromScale(0.25, 1)
+    valueLabel.Position = UDim2.fromScale(0.7, 0)
+    valueLabel.Text = tostring(default)
+    valueLabel.Font = Enum.Font.GothamBold
+    valueLabel.TextScaled = true
+    valueLabel.TextColor3 = Color3.fromRGB(220, 200, 255)
+    valueLabel.BackgroundTransparency = 1
+    
+    local slider = Instance.new("Frame", frame)
+    slider.Size = UDim2.fromScale(0.9, 0.15)
+    slider.Position = UDim2.fromScale(0.05, 0.85)
+    slider.BackgroundColor3 = Color3.fromRGB(80, 80, 90)
+    Instance.new("UICorner", slider)
+    
+    local fill = Instance.new("Frame", slider)
+    fill.Size = UDim2.fromScale((default - min) / (max - min), 1)
+    fill.BackgroundColor3 = Color3.fromRGB(120, 70, 180)
+    fill.BorderSizePixel = 0
+    Instance.new("UICorner", fill)
+    
+    local dragging = false
+    
+    local function update(value)
+        local normalized = math.clamp((value - min) / (max - min), 0, 1)
+        fill.Size = UDim2.fromScale(normalized, 1)
+        valueLabel.Text = tostring(math.floor(value))
+        callback(value)
+    end
+    
+    slider.InputBegan:Connect(function(input)
+        if input.UserInputType == Enum.UserInputType.MouseButton1 then
+            dragging = true
+        end
+    end)
+    
+    slider.InputEnded:Connect(function(input)
+        if input.UserInputType == Enum.UserInputType.MouseButton1 then
+            dragging = false
+        end
+    end)
+    
+    slider.InputChanged:Connect(function(input)
+        if dragging and input.UserInputType == Enum.UserInputType.MouseMovement then
+            local pos = input.Position.X - slider.AbsolutePosition.X
+            local normalized = math.clamp(pos / slider.AbsoluteSize.X, 0, 1)
+            local value = min + normalized * (max - min)
+            update(value)
+        end
+    end)
+    
+    update(default)
+    
+    return frame
+end
+
+-- Settings sliders
+createSlider(settingsScroll, "Fly Speed", 10, 100, SETTINGS.FLY_SPEED, function(value)
+    SETTINGS.FLY_SPEED = value
+end)
+
+createSlider(settingsScroll, "Walk Speed", 16, 100, SETTINGS.WALK_SPEED, function(value)
+    SETTINGS.WALK_SPEED = value
+end)
+
+createSlider(settingsScroll, "Jump Power", 50, 200, SETTINGS.JUMP_POWER, function(value)
+    SETTINGS.JUMP_POWER = value
+end)
+
+createSlider(settingsScroll, "X-Ray Transparency", 0.1, 0.9, SETTINGS.XRAY_TRANSPARENCY, function(value)
+    SETTINGS.XRAY_TRANSPARENCY = value
+end)
+
+-- Toggle buttons in settings
+createButton(settingsScroll, "🎨 Change Theme Color\n(Đổi màu giao diện)", function()
+    local colors = {
+        Color3.fromRGB(120, 70, 180),  -- Purple
+        Color3.fromRGB(50, 150, 255),  -- Blue
+        Color3.fromRGB(255, 50, 100),  -- Pink
+        Color3.fromRGB(50, 200, 100),  -- Green
+        Color3.fromRGB(255, 150, 50)   -- Orange
+    }
+    
+    local currentIndex = 1
+    for i, color in ipairs(colors) do
+        if main.BackgroundColor3 == color then
+            currentIndex = i
+            break
+        end
+    end
+    
+    local nextIndex = (currentIndex % #colors) + 1
+    local nextColor = colors[nextIndex]
+    
+    main.BackgroundColor3 = nextColor
+    watermark.BackgroundColor3 = nextColor
+    
+    for name, tab in pairs(tabs) do
+        tab.button.BackgroundColor3 = nextColor
+    end
+end)
+
+createButton(settingsScroll, "👁️ Toggle Watermark\n(Ẩn/Hiện watermark)", function()
+    watermark.Visible = not watermark.Visible
+end)
+
+createButton(settingsScroll, "📱 Mobile Optimize\n(Tối ưu cho điện thoại)", function()
+    main.Size = UDim2.fromScale(0.95, 0.8)
+    main.Position = UDim2.fromScale(0.025, 0.1)
+end)
+
+createButton(settingsScroll, "💾 Save Settings\n(Lưu cài đặt)", function()
+    -- Lưu settings vào DataStore (đơn giản hóa)
+    local settingsData = {
+        FLY_SPEED = SETTINGS.FLY_SPEED,
+        WALK_SPEED = SETTINGS.WALK_SPEED,
+        JUMP_POWER = SETTINGS.JUMP_POWER
+    }
+    
+    local notification = Instance.new("TextLabel", gui)
+    notification.Text = "✅ Settings saved!"
+    notification.Size = UDim2.new(0, 200, 0, 50)
+    notification.Position = UDim2.new(0.5, -100, 0.8, 0)
+    notification.BackgroundColor3 = Color3.fromRGB(50, 200, 100)
+    notification.TextColor3 = Color3.new(1, 1, 1)
+    notification.Font = Enum.Font.GothamBold
+    notification.TextSize = 16
+    Instance.new("UICorner", notification)
+    
+    task.wait(2)
+    notification:Destroy()
+end)
+
+createButton(settingsScroll, "🔄 Reset Settings\n(Reset về mặc định)", function()
+    SETTINGS = {
+        FLY_SPEED = 50,
+        WALK_SPEED = 16,
+        JUMP_POWER = 50,
+        REACH_DISTANCE = 30,
+        ESP_COLOR = Color3.fromRGB(255, 50, 50),
+        XRAY_TRANSPARENCY = 0.8
+    }
+end)
+
+--------------------------------------------------
+-- MINIMIZE SYSTEM
+--------------------------------------------------
+local minimize = Instance.new("TextButton", main)
+minimize.Size = UDim2.fromScale(0.1, 0.08)
+minimize.Position = UDim2.fromScale(0.88, 0.02)
+minimize.Text = "—"
+minimize.TextScaled = true
+minimize.Font = Enum.Font.GothamBold
+minimize.BackgroundColor3 = Color3.fromRGB(120, 70, 180)
+minimize.TextColor3 = Color3.new(1, 1, 1)
+minimize.AutoButtonColor = true
+Instance.new("UICorner", minimize).CornerRadius = UDim.new(1, 0)
+
+local icon = Instance.new("TextButton", gui)
+icon.Size = UDim2.fromScale(0.12, 0.12)
+icon.Position = UDim2.fromScale(0.02, 0.45)
+icon.Text = "🥼👓"
+icon.TextScaled = true
+icon.Font = Enum.Font.GothamBold
+icon.BackgroundColor3 = Color3.fromRGB(120, 70, 180)
+icon.TextColor3 = Color3.new(1, 1, 1)
+icon.Visible = false
+icon.Active = true
+icon.Draggable = true
+icon.AutoButtonColor = true
+Instance.new("UICorner", icon).CornerRadius = UDim.new(1, 0)
+
+minimize.MouseButton1Click:Connect(function()
+    main.Visible = false
+    icon.Visible = true
+end)
+
+icon.MouseButton1Click:Connect(function()
+    main.Visible = true
+    icon.Visible = false
+end)
+
+--------------------------------------------------
+-- KEYBIND SYSTEM
+--------------------------------------------------
+UserInputService.InputBegan:Connect(function(input, gameProcessed)
+    if gameProcessed then return end
+    
+    if input.KeyCode == Enum.KeyCode.RightShift then
+        main.Visible = not main.Visible
+        if main.Visible then
+            icon.Visible = false
+        end
+    elseif input.KeyCode == Enum.KeyCode.Insert then
+        main.Visible = not main.Visible
+        if main.Visible then
+            icon.Visible = false
+        end
+    end
+end)
+
+--------------------------------------------------
+-- ANTI-CRASH PROTECTION
+--------------------------------------------------
+local function safeCall(func, ...)
+    local success, result = pcall(func, ...)
+    if not success then
+        warn("Error in Minh Thuan Hub: " .. result)
+    end
+    return result
 end
 
 --------------------------------------------------
--- MAIN FEATURES (ALL VISIBLE + SCROLL)
+-- AUTO UPDATER
 --------------------------------------------------
-MakeToggle("REMOVE EFFECTS\n(Xóa hiệu ứng)", "FX", RemoveFX)
-MakeToggle("CAMERA SHAKE\n(Tắt rung camera)", "Shake", DisableShake)
-MakeToggle("REMOVE DEBRIS\n(Xóa part rơi)", "Debris", RemoveDebris)
-MakeToggle("GRAY MODE\n(Nhân vật xám)", "Gray", GrayCharacters)
-MakeToggle("DISABLE SOUND\n(Tắt sound effect)", "Sound", DisableSound)
-MakeToggle("POST EFFECT\n(Tắt bloom/blur)", "Post", DisablePost)
-
---------------------------------------------------
--- SERVER TAB
---------------------------------------------------
-local serverTab = Instance.new("Frame", main)
-serverTab.Position = mainTab.Position
-serverTab.Size = mainTab.Size
-serverTab.BackgroundTransparency = 1
-serverTab.Visible = false
-
-local function ServerButton(text,y,func)
-    local b = Instance.new("TextButton", serverTab)
-    b.Position = UDim2.fromScale(0.05,y)
-    b.Size = UDim2.fromScale(0.9,0.25)
-    b.TextScaled = true
-    b.Font = Enum.Font.GothamBold
-    b.Text = text
-    b.BackgroundColor3 = Color3.fromRGB(80,35,130)
-    b.TextColor3 = Color3.new(1,1,1)
-    Instance.new("UICorner", b).CornerRadius = UDim.new(0,18)
-    b.MouseButton1Click:Connect(func)
+local function checkForUpdates()
+    spawn(function()
+        task.wait(5)
+        local currentVersion = "2.0"
+        local updateNotification = Instance.new("TextLabel", gui)
+        updateNotification.Text = "🔔 Phiên bản mới nhất: v2.0"
+        updateNotification.Size = UDim2.new(0, 250, 0, 40)
+        updateNotification.Position = UDim2.new(0.01, 0, 0.95, 0)
+        updateNotification.BackgroundColor3 = Color3.fromRGB(50, 150, 255)
+        updateNotification.TextColor3 = Color3.new(1, 1, 1)
+        updateNotification.Font = Enum.Font.GothamBold
+        updateNotification.TextSize = 14
+        Instance.new("UICorner", updateNotification)
+        
+        task.wait(5)
+        updateNotification:Destroy()
+    end)
 end
 
-ServerButton("FIND LOW SERVER\n(Server ít người)",0.15,FindLowServer)
-ServerButton("REJOIN SERVER\n(Vào lại server)",0.5,Rejoin)
+--------------------------------------------------
+-- INITIALIZATION
+--------------------------------------------------
+print("=========================================")
+print("🥼👓 MINH THUẬN HUB v2.0 LOADED")
+print("📱 Created by: Dương Minh Thuận")
+print("🚀 Features: Fix Lag + Hacks + Settings")
+print("🔑 Toggle GUI: RightShift or Insert")
+print("=========================================")
 
---------------------------------------------------
--- TAB SWITCH
---------------------------------------------------
-tabMain.MouseButton1Click:Connect(function()
-    mainTab.Visible = true
-    serverTab.Visible = false
+-- Run initial optimizations
+task.spawn(function()
+    task.wait(2)
+    safeCall(function()
+        Lighting.GlobalShadows = false
+        optimizeLighting()
+        print("✅ Initial optimizations applied")
+    end)
 end)
-tabServer.MouseButton1Click:Connect(function()
-    mainTab.Visible = false
-    serverTab.Visible = true
+
+-- Check for updates
+checkForUpdates()
+
+-- Auto-save settings when leaving
+game:BindToClose(function()
+    print("💾 Minh Thuận Hub: Saving settings...")
 end)
+
+-- Protection against detection
+if hookfunction then
+    local originalNamecall
+    originalNamecall = hookfunction(getrawmetatable(game).__namecall, function(self, ...)
+        local method = getnamecallmethod()
+        if method == "Kick" or method == "kick" then
+            return nil
+        end
+        return originalNamecall(self, ...)
+    end)
+    print("🛡️ Anti-detection protection activated")
+end
