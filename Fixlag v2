@@ -1,7 +1,6 @@
 --==================================================
--- MINH THUẬN HUB | UNIVERSAL FPS FIX
--- AIRHUB STYLE | MOBILE FRIENDLY
--- CLIENT SIDE ONLY
+-- MINH THUẬN HUB | UNIVERSAL FIX LAG (FIXED)
+-- SCROLL SUPPORT | MOBILE SAFE | NO STAND BUG
 --==================================================
 
 if getgenv().MINHTHUAN_HUB then return end
@@ -27,7 +26,7 @@ local State = {
 }
 
 --------------------------------------------------
--- SAFE FIX LAG FUNCTIONS (NO STAND BUG)
+-- FIX LAG FUNCTIONS (SAFE)
 --------------------------------------------------
 local function RemoveFX(on)
     for _,v in ipairs(workspace:GetDescendants()) do
@@ -42,6 +41,7 @@ end
 local ShakeConn
 local function DisableShake(on)
     if on then
+        if ShakeConn then ShakeConn:Disconnect() end
         ShakeConn = RunService.RenderStepped:Connect(function()
             Camera.CFrame = Camera.CFrame
         end)
@@ -81,18 +81,6 @@ local function GrayCharacters(on)
     end
 end
 
-local function HidePlayers(on)
-    for _,plr in ipairs(Players:GetPlayers()) do
-        if plr ~= LocalPlayer and plr.Character then
-            for _,v in ipairs(plr.Character:GetDescendants()) do
-                if v:IsA("BasePart") then
-                    v.LocalTransparencyModifier = on and 1 or 0
-                end
-            end
-        end
-    end
-end
-
 local function DisableSound(on)
     for _,s in ipairs(workspace:GetDescendants()) do
         if s:IsA("Sound") then
@@ -110,12 +98,8 @@ local function DisablePost(on)
     end
 end
 
-local function DisableShadow(on)
-    Lighting.GlobalShadows = not on
-end
-
 --------------------------------------------------
--- SERVER FUNCTIONS
+-- SERVER
 --------------------------------------------------
 local function FindLowServer()
     local data = HttpService:JSONDecode(
@@ -146,7 +130,7 @@ gui.Name = "MinhThuanHub"
 gui.ResetOnSpawn = false
 
 --------------------------------------------------
--- MAIN FRAME (AIRHUB STYLE)
+-- MAIN FRAME
 --------------------------------------------------
 local main = Instance.new("Frame", gui)
 main.Size = UDim2.fromScale(0.9,0.72)
@@ -166,18 +150,6 @@ title.Text = "MINH THUẬN HUB"
 title.TextScaled = true
 title.Font = Enum.Font.GothamBold
 title.TextColor3 = Color3.fromRGB(230,200,255)
-
---------------------------------------------------
--- CREDIT
---------------------------------------------------
-local credit = Instance.new("TextLabel", main)
-credit.Position = UDim2.fromScale(0,0.92)
-credit.Size = UDim2.fromScale(1,0.08)
-credit.BackgroundTransparency = 1
-credit.Text = "Credit: Dương Minh Thuận | Universal Fix Lag"
-credit.TextScaled = true
-credit.Font = Enum.Font.Gotham
-credit.TextColor3 = Color3.fromRGB(180,150,220)
 
 --------------------------------------------------
 -- TAB BUTTONS
@@ -201,35 +173,31 @@ for _,b in ipairs({tabMain,tabServer}) do
 end
 
 --------------------------------------------------
--- CONTAINERS
+-- SCROLLABLE MAIN TAB (FIX MISSING FEATURES)
 --------------------------------------------------
-local mainTab = Instance.new("Frame", main)
+local mainTab = Instance.new("ScrollingFrame", main)
 mainTab.Position = UDim2.fromScale(0,0.24)
 mainTab.Size = UDim2.fromScale(1,0.66)
+mainTab.CanvasSize = UDim2.fromScale(0,1.4)
+mainTab.ScrollBarThickness = 6
 mainTab.BackgroundTransparency = 1
+mainTab.AutomaticCanvasSize = Enum.AutomaticSize.None
 
-local serverTab = Instance.new("Frame", main)
-serverTab.Position = mainTab.Position
-serverTab.Size = mainTab.Size
-serverTab.BackgroundTransparency = 1
-serverTab.Visible = false
+local layout = Instance.new("UIListLayout", mainTab)
+layout.Padding = UDim.new(0,14)
+layout.HorizontalAlignment = Enum.HorizontalAlignment.Center
 
 --------------------------------------------------
--- TOGGLE MAKER (BIG BUTTONS)
+-- TOGGLE CREATOR (NO DISAPPEAR BUG)
 --------------------------------------------------
-local function MakeToggle(parent,text,y,state,callback)
-    local b = Instance.new("TextButton", parent)
-    b.Position = UDim2.fromScale(0.05,y)
-    b.Size = UDim2.fromScale(0.9,0.16)
+local function MakeToggle(text,state,callback)
+    local b = Instance.new("TextButton", mainTab)
+    b.Size = UDim2.fromScale(0.9,0.14)
     b.TextWrapped = true
     b.TextScaled = true
     b.Font = Enum.Font.GothamBold
     b.AutoButtonColor = false
     Instance.new("UICorner", b).CornerRadius = UDim.new(0,18)
-
-    local stroke = Instance.new("UIStroke", b)
-    stroke.Thickness = 2
-    stroke.Color = Color3.fromRGB(210,170,255)
 
     local function Refresh()
         b.Text = text.."\n"..(State[state] and "ON" or "OFF")
@@ -248,16 +216,24 @@ local function MakeToggle(parent,text,y,state,callback)
 end
 
 --------------------------------------------------
--- MAIN TAB BUTTONS
+-- MAIN FEATURES (ALL VISIBLE + SCROLL)
 --------------------------------------------------
-MakeToggle(mainTab,"REMOVE EFFECTS\n(Xóa hiệu ứng)",0.02,"FX",RemoveFX)
-MakeToggle(mainTab,"CAMERA SHAKE\n(Tắt rung)",0.22,"Shake",DisableShake)
-MakeToggle(mainTab,"REMOVE DEBRIS\n(Xóa part rơi)",0.42,"Debris",RemoveDebris)
-MakeToggle(mainTab,"GRAY MODE\n(Nhân vật xám)",0.62,"Gray",GrayCharacters)
+MakeToggle("REMOVE EFFECTS\n(Xóa hiệu ứng)", "FX", RemoveFX)
+MakeToggle("CAMERA SHAKE\n(Tắt rung camera)", "Shake", DisableShake)
+MakeToggle("REMOVE DEBRIS\n(Xóa part rơi)", "Debris", RemoveDebris)
+MakeToggle("GRAY MODE\n(Nhân vật xám)", "Gray", GrayCharacters)
+MakeToggle("DISABLE SOUND\n(Tắt sound effect)", "Sound", DisableSound)
+MakeToggle("POST EFFECT\n(Tắt bloom/blur)", "Post", DisablePost)
 
 --------------------------------------------------
--- SERVER TAB BUTTONS
+-- SERVER TAB
 --------------------------------------------------
+local serverTab = Instance.new("Frame", main)
+serverTab.Position = mainTab.Position
+serverTab.Size = mainTab.Size
+serverTab.BackgroundTransparency = 1
+serverTab.Visible = false
+
 local function ServerButton(text,y,func)
     local b = Instance.new("TextButton", serverTab)
     b.Position = UDim2.fromScale(0.05,y)
@@ -284,44 +260,4 @@ end)
 tabServer.MouseButton1Click:Connect(function()
     mainTab.Visible = false
     serverTab.Visible = true
-end)
-
---------------------------------------------------
--- MINIMIZE + ROUND ICON 🥼👓
---------------------------------------------------
-local icon = Instance.new("TextButton", gui)
-icon.Text = "🥼👓"
-icon.Size = UDim2.fromScale(0.14,0.14)
-icon.Position = UDim2.fromScale(0.05,0.45)
-icon.TextScaled = true
-icon.Font = Enum.Font.GothamBold
-icon.TextColor3 = Color3.new(1,1,1)
-icon.BackgroundColor3 = Color3.fromRGB(120,60,180)
-icon.Visible = false
-icon.Active = true
-icon.Draggable = true
-Instance.new("UICorner", icon).CornerRadius = UDim.new(1,0)
-
-local iconStroke = Instance.new("UIStroke", icon)
-iconStroke.Thickness = 3
-iconStroke.Color = Color3.fromRGB(220,180,255)
-
-local minimize = Instance.new("TextButton", main)
-minimize.Text = "—"
-minimize.Size = UDim2.fromScale(0.12,0.1)
-minimize.Position = UDim2.fromScale(0.86,0.02)
-minimize.TextScaled = true
-minimize.Font = Enum.Font.GothamBold
-minimize.BackgroundColor3 = Color3.fromRGB(90,40,140)
-minimize.TextColor3 = Color3.new(1,1,1)
-Instance.new("UICorner", minimize).CornerRadius = UDim.new(0,16)
-
-minimize.MouseButton1Click:Connect(function()
-    main.Visible = false
-    icon.Visible = true
-end)
-
-icon.MouseButton1Click:Connect(function()
-    main.Visible = true
-    icon.Visible = false
 end)
