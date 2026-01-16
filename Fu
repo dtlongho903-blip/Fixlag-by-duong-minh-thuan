@@ -1,0 +1,98 @@
+-- Heavyweight Fishing Auto Fish GUI
+-- Mobile Friendly | Auto Fix
+-- By ChatGPT
+
+local Players = game:GetService("Players")
+local RunService = game:GetService("RunService")
+local VirtualUser = game:GetService("VirtualUser")
+local player = Players.LocalPlayer
+
+getgenv().AutoFish = false
+
+-- Anti AFK
+player.Idled:Connect(function()
+    VirtualUser:Button2Down(Vector2.new(0,0), workspace.CurrentCamera.CFrame)
+    task.wait(1)
+    VirtualUser:Button2Up(Vector2.new(0,0), workspace.CurrentCamera.CFrame)
+end)
+
+-- ===== GUI =====
+local gui = Instance.new("ScreenGui", game.CoreGui)
+gui.Name = "HeavyweightFishingGUI"
+
+local frame = Instance.new("Frame", gui)
+frame.Size = UDim2.new(0, 220, 0, 140)
+frame.Position = UDim2.new(0.3, 0, 0.3, 0)
+frame.BackgroundColor3 = Color3.fromRGB(25,25,25)
+frame.Active = true
+frame.Draggable = true
+
+local corner = Instance.new("UICorner", frame)
+corner.CornerRadius = UDim.new(0, 12)
+
+local title = Instance.new("TextLabel", frame)
+title.Size = UDim2.new(1,0,0,35)
+title.BackgroundTransparency = 1
+title.Text = "🎣 Heavyweight Fishing"
+title.TextColor3 = Color3.new(1,1,1)
+title.Font = Enum.Font.GothamBold
+title.TextSize = 14
+
+local toggle = Instance.new("TextButton", frame)
+toggle.Size = UDim2.new(0.85,0,0,40)
+toggle.Position = UDim2.new(0.075,0,0.35,0)
+toggle.Text = "AUTO FISH : OFF"
+toggle.BackgroundColor3 = Color3.fromRGB(170,0,0)
+toggle.TextColor3 = Color3.new(1,1,1)
+toggle.Font = Enum.Font.GothamBold
+toggle.TextSize = 14
+Instance.new("UICorner", toggle)
+
+local credit = Instance.new("TextLabel", frame)
+credit.Size = UDim2.new(1,0,0,25)
+credit.Position = UDim2.new(0,0,1,-25)
+credit.BackgroundTransparency = 1
+credit.Text = "Script by ChatGPT"
+credit.TextColor3 = Color3.fromRGB(200,200,200)
+credit.Font = Enum.Font.Gotham
+credit.TextSize = 11
+
+-- Toggle logic
+toggle.MouseButton1Click:Connect(function()
+    AutoFish = not AutoFish
+    toggle.Text = AutoFish and "AUTO FISH : ON" or "AUTO FISH : OFF"
+    toggle.BackgroundColor3 = AutoFish and Color3.fromRGB(0,170,0) or Color3.fromRGB(170,0,0)
+end)
+
+-- ===== AUTO FISH CORE =====
+task.spawn(function()
+    while task.wait(1.5) do
+        if not AutoFish then continue end
+
+        pcall(function()
+            local char = player.Character or player.CharacterAdded:Wait()
+            local humanoid = char:FindFirstChildOfClass("Humanoid")
+            if humanoid and humanoid.Health <= 0 then return end
+
+            -- Tìm & equip cần câu
+            local tool = char:FindFirstChildOfClass("Tool")
+                or player.Backpack:FindFirstChildOfClass("Tool")
+
+            if not tool then return end
+            tool.Parent = char
+            task.wait(0.2)
+
+            -- Thả cần
+            tool:Activate()
+            task.wait(1)
+
+            -- Kéo cá (macro an toàn)
+            for i = 1, 8 do
+                if not AutoFish then break end
+                tool:Activate()
+                task.wait(0.2)
+            end
+        end)
+    end
+end)
+
