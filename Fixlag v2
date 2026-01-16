@@ -1,75 +1,79 @@
 --==================================================
--- MINH THUẬN HUB | AIRHUB STYLE | UNIVERSAL
--- MAIN TAB + SERVER TAB | TOGGLE FEATURES
+-- MINH THUẬN HUB | UNIVERSAL FPS FIX
+-- AIRHUB STYLE | MOBILE FRIENDLY
+-- CLIENT SIDE ONLY
 --==================================================
 
+if getgenv().MINHTHUAN_HUB then return end
+getgenv().MINHTHUAN_HUB = true
+
+--------------------------------------------------
+-- SERVICES
+--------------------------------------------------
 local Players = game:GetService("Players")
-local Lighting = game:GetService("Lighting")
 local RunService = game:GetService("RunService")
+local Lighting = game:GetService("Lighting")
 local TeleportService = game:GetService("TeleportService")
 local HttpService = game:GetService("HttpService")
 local LocalPlayer = Players.LocalPlayer
+local Camera = workspace.CurrentCamera
 
 --------------------------------------------------
--- STATES
+-- STATE
 --------------------------------------------------
 local State = {
-    FX = false,
-    Shake = false,
-    Debris = false,
-    Gray = false,
-    Sound = false,
-    Hide = false
+    FX=false, Shake=false, Debris=false, Gray=false,
+    Sound=false, Hide=false, Post=false, Shadow=false
 }
 
 --------------------------------------------------
--- SAFE FUNCTIONS
+-- SAFE FIX LAG FUNCTIONS (NO STAND BUG)
 --------------------------------------------------
-local function toggleFX(on)
-    for _,v in ipairs(Lighting:GetChildren()) do
-        if v:IsA("PostEffect") then
-            v.Enabled = not on
-        end
-    end
+local function RemoveFX(on)
     for _,v in ipairs(workspace:GetDescendants()) do
-        if v:IsA("ParticleEmitter") or v:IsA("Trail") or v:IsA("Beam") then
+        if v:IsA("ParticleEmitter") or v:IsA("Trail")
+        or v:IsA("Beam") or v:IsA("Fire")
+        or v:IsA("Smoke") or v:IsA("Sparkles") then
             v.Enabled = not on
         end
     end
 end
 
-local shakeConn
-local function toggleShake(on)
+local ShakeConn
+local function DisableShake(on)
     if on then
-        shakeConn = RunService.RenderStepped:Connect(function()
-            workspace.CurrentCamera.CFrame = workspace.CurrentCamera.CFrame
+        ShakeConn = RunService.RenderStepped:Connect(function()
+            Camera.CFrame = Camera.CFrame
         end)
-    elseif shakeConn then
-        shakeConn:Disconnect()
+    elseif ShakeConn then
+        ShakeConn:Disconnect()
+        ShakeConn = nil
     end
 end
 
-local function toggleDebris(on)
-    if on then
-        for _,p in ipairs(workspace:GetChildren()) do
-            if p:IsA("Part") and not p.Anchored and not p.CanCollide then
-                p:Destroy()
-            end
+local function RemoveDebris(on)
+    if not on then return end
+    for _,v in ipairs(workspace:GetChildren()) do
+        if v:IsA("BasePart")
+        and not v.Anchored
+        and not v.CanCollide
+        and v.Size.Magnitude < 20 then
+            pcall(function() v:Destroy() end)
         end
     end
 end
 
-local function toggleGray(on)
+local function GrayCharacters(on)
     for _,plr in ipairs(Players:GetPlayers()) do
         if plr.Character then
             for _,v in ipairs(plr.Character:GetDescendants()) do
                 if v:IsA("BasePart") then
                     if on then
-                        v.Material = Enum.Material.SmoothPlastic
+                        v.Material = Enum.Material.Plastic
                         v.Color = Color3.fromRGB(150,150,150)
+                        v.CastShadow = false
                     end
-                end
-                if v:IsA("Decal") or v:IsA("Texture") then
+                elseif v:IsA("Decal") or v:IsA("Texture") then
                     v.Transparency = on and 1 or 0
                 end
             end
@@ -77,16 +81,7 @@ local function toggleGray(on)
     end
 end
 
-local function toggleSound(on)
-    for _,s in ipairs(workspace:GetDescendants()) do
-        if s:IsA("Sound") then
-            s.Volume = on and 0 or 1
-            if on then s:Stop() end
-        end
-    end
-end
-
-local function toggleHide(on)
+local function HidePlayers(on)
     for _,plr in ipairs(Players:GetPlayers()) do
         if plr ~= LocalPlayer and plr.Character then
             for _,v in ipairs(plr.Character:GetDescendants()) do
@@ -98,134 +93,186 @@ local function toggleHide(on)
     end
 end
 
---------------------------------------------------
--- SERVER
---------------------------------------------------
-local function findLowServer()
-    local placeId = game.PlaceId
-    local data = HttpService:JSONDecode(
-        game:HttpGet("https://games.roblox.com/v1/games/"..placeId.."/servers/Public?sortOrder=Asc&limit=100")
-    )
-    for _,s in ipairs(data.data) do
-        if s.playing < s.maxPlayers - 5 then
-            TeleportService:TeleportToPlaceInstance(placeId, s.id, LocalPlayer)
-            break
+local function DisableSound(on)
+    for _,s in ipairs(workspace:GetDescendants()) do
+        if s:IsA("Sound") then
+            s.Volume = on and 0 or 1
+            if on then s:Stop() end
         end
     end
 end
 
-local function rejoin()
-    TeleportService:Teleport(game.PlaceId, LocalPlayer)
+local function DisablePost(on)
+    for _,v in ipairs(Lighting:GetChildren()) do
+        if v:IsA("PostEffect") then
+            v.Enabled = not on
+        end
+    end
+end
+
+local function DisableShadow(on)
+    Lighting.GlobalShadows = not on
 end
 
 --------------------------------------------------
--- GUI
+-- SERVER FUNCTIONS
+--------------------------------------------------
+local function FindLowServer()
+    local data = HttpService:JSONDecode(
+        game:HttpGet(
+            "https://games.roblox.com/v1/games/"..
+            game.PlaceId.."/servers/Public?limit=100"
+        )
+    )
+    table.sort(data.data,function(a,b)
+        return a.playing < b.playing
+    end)
+    if data.data[1] then
+        TeleportService:TeleportToPlaceInstance(
+            game.PlaceId,data.data[1].id,LocalPlayer
+        )
+    end
+end
+
+local function Rejoin()
+    TeleportService:Teleport(game.PlaceId,LocalPlayer)
+end
+
+--------------------------------------------------
+-- GUI ROOT
 --------------------------------------------------
 local gui = Instance.new("ScreenGui", game.CoreGui)
+gui.Name = "MinhThuanHub"
 gui.ResetOnSpawn = false
 
+--------------------------------------------------
+-- MAIN FRAME (AIRHUB STYLE)
+--------------------------------------------------
 local main = Instance.new("Frame", gui)
-main.Size = UDim2.fromScale(0.85,0.6)
-main.Position = UDim2.fromScale(0.075,0.2)
-main.BackgroundColor3 = Color3.fromRGB(45,15,70)
+main.Size = UDim2.fromScale(0.9,0.72)
+main.Position = UDim2.fromScale(0.05,0.15)
+main.BackgroundColor3 = Color3.fromRGB(40,15,65)
 main.Active = true
 main.Draggable = true
-Instance.new("UICorner", main).CornerRadius = UDim.new(0,16)
+Instance.new("UICorner", main).CornerRadius = UDim.new(0,18)
 
+--------------------------------------------------
+-- TITLE
+--------------------------------------------------
 local title = Instance.new("TextLabel", main)
 title.Size = UDim2.fromScale(1,0.1)
+title.BackgroundTransparency = 1
 title.Text = "MINH THUẬN HUB"
 title.TextScaled = true
 title.Font = Enum.Font.GothamBold
-title.BackgroundTransparency = 1
 title.TextColor3 = Color3.fromRGB(230,200,255)
+
+--------------------------------------------------
+-- CREDIT
+--------------------------------------------------
+local credit = Instance.new("TextLabel", main)
+credit.Position = UDim2.fromScale(0,0.92)
+credit.Size = UDim2.fromScale(1,0.08)
+credit.BackgroundTransparency = 1
+credit.Text = "Credit: Dương Minh Thuận | Universal Fix Lag"
+credit.TextScaled = true
+credit.Font = Enum.Font.Gotham
+credit.TextColor3 = Color3.fromRGB(180,150,220)
 
 --------------------------------------------------
 -- TAB BUTTONS
 --------------------------------------------------
 local tabMain = Instance.new("TextButton", main)
 tabMain.Text = "MAIN"
-tabMain.Size = UDim2.fromScale(0.45,0.08)
+tabMain.Size = UDim2.fromScale(0.45,0.1)
 tabMain.Position = UDim2.fromScale(0.05,0.12)
 
 local tabServer = Instance.new("TextButton", main)
 tabServer.Text = "SERVER"
-tabServer.Size = UDim2.fromScale(0.45,0.08)
+tabServer.Size = UDim2.fromScale(0.45,0.1)
 tabServer.Position = UDim2.fromScale(0.5,0.12)
 
-for _,b in ipairs({tabMain, tabServer}) do
+for _,b in ipairs({tabMain,tabServer}) do
     b.TextScaled = true
-    b.BackgroundColor3 = Color3.fromRGB(70,30,120)
+    b.Font = Enum.Font.GothamBold
+    b.BackgroundColor3 = Color3.fromRGB(80,35,130)
     b.TextColor3 = Color3.new(1,1,1)
-    Instance.new("UICorner", b).CornerRadius = UDim.new(0,12)
+    Instance.new("UICorner", b).CornerRadius = UDim.new(0,16)
 end
 
 --------------------------------------------------
 -- CONTAINERS
 --------------------------------------------------
 local mainTab = Instance.new("Frame", main)
-mainTab.Position = UDim2.fromScale(0,0.22)
-mainTab.Size = UDim2.fromScale(1,0.68)
+mainTab.Position = UDim2.fromScale(0,0.24)
+mainTab.Size = UDim2.fromScale(1,0.66)
 mainTab.BackgroundTransparency = 1
 
-local serverTab = mainTab:Clone()
-serverTab.Parent = main
+local serverTab = Instance.new("Frame", main)
+serverTab.Position = mainTab.Position
+serverTab.Size = mainTab.Size
+serverTab.BackgroundTransparency = 1
 serverTab.Visible = false
 
 --------------------------------------------------
--- TOGGLE MAKER
+-- TOGGLE MAKER (BIG BUTTONS)
 --------------------------------------------------
-local function makeToggle(parent, text, y, stateName, func)
-    local btn = Instance.new("TextButton", parent)
-    btn.Position = UDim2.fromScale(0.05,y)
-    btn.Size = UDim2.fromScale(0.9,0.12)
-    btn.TextScaled = true
-    btn.Font = Enum.Font.Gotham
-    Instance.new("UICorner", btn).CornerRadius = UDim.new(0,12)
+local function MakeToggle(parent,text,y,state,callback)
+    local b = Instance.new("TextButton", parent)
+    b.Position = UDim2.fromScale(0.05,y)
+    b.Size = UDim2.fromScale(0.9,0.16)
+    b.TextWrapped = true
+    b.TextScaled = true
+    b.Font = Enum.Font.GothamBold
+    b.AutoButtonColor = false
+    Instance.new("UICorner", b).CornerRadius = UDim.new(0,18)
 
-    local function refresh()
-        btn.Text = text.."\n"..(State[stateName] and "ON" or "OFF")
-        btn.BackgroundColor3 = State[stateName] and Color3.fromRGB(120,60,180)
-            or Color3.fromRGB(70,30,120)
+    local stroke = Instance.new("UIStroke", b)
+    stroke.Thickness = 2
+    stroke.Color = Color3.fromRGB(210,170,255)
+
+    local function Refresh()
+        b.Text = text.."\n"..(State[state] and "ON" or "OFF")
+        b.BackgroundColor3 = State[state]
+            and Color3.fromRGB(160,90,220)
+            or Color3.fromRGB(80,40,130)
     end
 
-    btn.MouseButton1Click:Connect(function()
-        State[stateName] = not State[stateName]
-        func(State[stateName])
-        refresh()
+    b.MouseButton1Click:Connect(function()
+        State[state] = not State[state]
+        callback(State[state])
+        Refresh()
     end)
 
-    refresh()
+    Refresh()
 end
 
 --------------------------------------------------
--- MAIN TAB TOGGLES
+-- MAIN TAB BUTTONS
 --------------------------------------------------
-makeToggle(mainTab,"REMOVE EFFECTS\n(Xóa hiệu ứng)",0.05,"FX",toggleFX)
-makeToggle(mainTab,"CAMERA SHAKE\n(Tắt rung)",0.20,"Shake",toggleShake)
-makeToggle(mainTab,"REMOVE DEBRIS\n(Xóa part rơi)",0.35,"Debris",toggleDebris)
-makeToggle(mainTab,"GRAY MODE\n(Nhân vật xám)",0.50,"Gray",toggleGray)
-makeToggle(mainTab,"DISABLE SOUND\n(Tắt âm thanh)",0.65,"Sound",toggleSound)
-makeToggle(mainTab,"HIDE PLAYERS\n(Ẩn player)",0.80,"Hide",toggleHide)
+MakeToggle(mainTab,"REMOVE EFFECTS\n(Xóa hiệu ứng)",0.02,"FX",RemoveFX)
+MakeToggle(mainTab,"CAMERA SHAKE\n(Tắt rung)",0.22,"Shake",DisableShake)
+MakeToggle(mainTab,"REMOVE DEBRIS\n(Xóa part rơi)",0.42,"Debris",RemoveDebris)
+MakeToggle(mainTab,"GRAY MODE\n(Nhân vật xám)",0.62,"Gray",GrayCharacters)
 
 --------------------------------------------------
--- SERVER TAB
+-- SERVER TAB BUTTONS
 --------------------------------------------------
-local function serverButton(text,y,callback)
+local function ServerButton(text,y,func)
     local b = Instance.new("TextButton", serverTab)
     b.Position = UDim2.fromScale(0.05,y)
-    b.Size = UDim2.fromScale(0.9,0.15)
-    b.Text = text
+    b.Size = UDim2.fromScale(0.9,0.25)
     b.TextScaled = true
-    b.Font = Enum.Font.Gotham
-    b.BackgroundColor3 = Color3.fromRGB(70,30,120)
+    b.Font = Enum.Font.GothamBold
+    b.Text = text
+    b.BackgroundColor3 = Color3.fromRGB(80,35,130)
     b.TextColor3 = Color3.new(1,1,1)
-    Instance.new("UICorner", b).CornerRadius = UDim.new(0,12)
-    b.MouseButton1Click:Connect(callback)
+    Instance.new("UICorner", b).CornerRadius = UDim.new(0,18)
+    b.MouseButton1Click:Connect(func)
 end
 
-serverButton("FIND LOW SERVER\n(Server ít người)",0.15,findLowServer)
-serverButton("REJOIN SERVER\n(Vào lại server)",0.40,rejoin)
+ServerButton("FIND LOW SERVER\n(Server ít người)",0.15,FindLowServer)
+ServerButton("REJOIN SERVER\n(Vào lại server)",0.5,Rejoin)
 
 --------------------------------------------------
 -- TAB SWITCH
@@ -234,31 +281,42 @@ tabMain.MouseButton1Click:Connect(function()
     mainTab.Visible = true
     serverTab.Visible = false
 end)
-
 tabServer.MouseButton1Click:Connect(function()
     mainTab.Visible = false
     serverTab.Visible = true
 end)
 
 --------------------------------------------------
--- MINIMIZE
+-- MINIMIZE + ROUND ICON 🥼👓
 --------------------------------------------------
 local icon = Instance.new("TextButton", gui)
 icon.Text = "🥼👓"
-icon.Size = UDim2.fromScale(0.12,0.08)
-icon.Position = UDim2.fromScale(0.02,0.45)
+icon.Size = UDim2.fromScale(0.14,0.14)
+icon.Position = UDim2.fromScale(0.05,0.45)
 icon.TextScaled = true
+icon.Font = Enum.Font.GothamBold
+icon.TextColor3 = Color3.new(1,1,1)
+icon.BackgroundColor3 = Color3.fromRGB(120,60,180)
 icon.Visible = false
 icon.Active = true
 icon.Draggable = true
 Instance.new("UICorner", icon).CornerRadius = UDim.new(1,0)
 
-local min = Instance.new("TextButton", main)
-min.Text = "—"
-min.Size = UDim2.fromScale(0.1,0.08)
-min.Position = UDim2.fromScale(0.88,0.02)
+local iconStroke = Instance.new("UIStroke", icon)
+iconStroke.Thickness = 3
+iconStroke.Color = Color3.fromRGB(220,180,255)
 
-min.MouseButton1Click:Connect(function()
+local minimize = Instance.new("TextButton", main)
+minimize.Text = "—"
+minimize.Size = UDim2.fromScale(0.12,0.1)
+minimize.Position = UDim2.fromScale(0.86,0.02)
+minimize.TextScaled = true
+minimize.Font = Enum.Font.GothamBold
+minimize.BackgroundColor3 = Color3.fromRGB(90,40,140)
+minimize.TextColor3 = Color3.new(1,1,1)
+Instance.new("UICorner", minimize).CornerRadius = UDim.new(0,16)
+
+minimize.MouseButton1Click:Connect(function()
     main.Visible = false
     icon.Visible = true
 end)
