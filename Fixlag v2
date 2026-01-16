@@ -1,662 +1,234 @@
 --==================================================
--- MINH THUẬN HUB | UNIVERSAL (FULL)
--- Fix Lag + Hitbox + HACK (Fly, Noclip, ClickTP, Speed, Jump, Invisible, ...)
--- Client-side only
+-- MINH THUẬN HUB - UNIVERSAL (FIX LAG + HACK)
+-- CLIENT SIDE ONLY
+-- Author: Dương Minh Thuận
 --==================================================
 
-if getgenv().MinhThuanHub then return end
-getgenv().MinhThuanHub = true
+if getgenv().MINHTHUAN_HUB then return end
+getgenv().MINHTHUAN_HUB = true
 
--- SERVICES
+-- Services
 local Players = game:GetService("Players")
-local Lighting = game:GetService("Lighting")
 local RunService = game:GetService("RunService")
-local TeleportService = game:GetService("TeleportService")
-local HttpService = game:GetService("HttpService")
-local UserInputService = game:GetService("UserInputService")
-local LocalPlayer = Players.LocalPlayer
-local Camera = workspace.CurrentCamera
+local Lighting = game:GetService("Lighting")
+local UIS = game:GetService("UserInputService")
+local player = Players.LocalPlayer
+local camera = workspace.CurrentCamera
 
---================================
--- BASE UI (AIRHUB STYLE SIMPLE)
---================================
-local ScreenGui = Instance.new("ScreenGui", game.CoreGui)
-ScreenGui.Name = "MinhThuanHub"
-ScreenGui.ResetOnSpawn = false
+--==================================================
+-- LOAD RAYFIELD
+--==================================================
+local Rayfield = loadstring(game:HttpGet(
+    "https://raw.githubusercontent.com/shlexware/Rayfield/main/source"
+))()
 
-local Main = Instance.new("Frame", ScreenGui)
-Main.Size = UDim2.new(0, 420, 0, 520)
-Main.Position = UDim2.new(0.5, -210, 0.5, -260)
-Main.BackgroundColor3 = Color3.fromRGB(25,25,35)
-Main.Active = true
-Main.Draggable = true
-Main.BorderSizePixel = 0
-Main.Name = "Main"
-Instance.new("UICorner", Main).CornerRadius = UDim.new(0,16)
+--==================================================
+-- WINDOW
+--==================================================
+local Window = Rayfield:CreateWindow({
+    Name = "🟣 Minh Thuận Hub",
+    LoadingTitle = "Minh Thuận Hub",
+    LoadingSubtitle = "Fix Lag & Hack Universal",
+    ConfigurationSaving = { Enabled = false },
+    Discord = { Enabled = false },
+    KeySystem = false,
+    Theme = {
+        TextColor = Color3.fromRGB(230,230,255),
+        Background = Color3.fromRGB(40,20,60),
+        Topbar = Color3.fromRGB(60,30,90),
+        Shadow = Color3.fromRGB(20,10,30),
+        Accent = Color3.fromRGB(170,90,255)
+    }
+})
 
-local Title = Instance.new("TextLabel", Main)
-Title.Size = UDim2.new(1,0,0,44)
-Title.Text = "🥼👓 Minh Thuận Hub - Universal"
-Title.TextColor3 = Color3.new(1,1,1)
-Title.BackgroundTransparency = 1
-Title.Font = Enum.Font.GothamBold
-Title.TextSize = 18
-Title.TextXAlignment = Enum.TextXAlignment.Left
-Title.Position = UDim2.new(0,14,0,10)
+--==================================================
+-- STATE
+--==================================================
+local STATE = {
+    HitboxOn = false,
+    HitboxSize = 6,
+    Fly = false,
+    Noclip = false,
+    ClickTP = false
+}
 
--- Minimize button + Icon
-local MinBtn = Instance.new("TextButton", Main)
-MinBtn.Size = UDim2.new(0,40,0,40)
-MinBtn.Position = UDim2.new(1,-50,0,4)
-MinBtn.Text = "—"
-MinBtn.Font = Enum.Font.GothamBold
-MinBtn.TextSize = 20
-MinBtn.BackgroundTransparency = 0.6
-MinBtn.TextColor3 = Color3.new(1,1,1)
-Instance.new("UICorner", MinBtn).CornerRadius = UDim.new(0,8)
+--==================================================
+-- HITBOX SYSTEM
+--==================================================
+local function getHRP(char)
+    return char and char:FindFirstChild("HumanoidRootPart")
+end
 
-local IconBtn = Instance.new("TextButton", ScreenGui)
-IconBtn.Size = UDim2.new(0,56,0,56)
-IconBtn.Position = UDim2.new(0,20,0.5,-28)
-IconBtn.Text = "🥼👓"
-IconBtn.Visible = false
-IconBtn.BackgroundColor3 = Color3.fromRGB(30,30,30)
-Instance.new("UICorner", IconBtn).CornerRadius = UDim.new(1,0)
-IconBtn.Font = Enum.Font.GothamBold
-IconBtn.TextSize = 20
-
-MinBtn.MouseButton1Click:Connect(function()
-    Main.Visible = false
-    IconBtn.Visible = true
-end)
-IconBtn.MouseButton1Click:Connect(function()
-    Main.Visible = true
-    IconBtn.Visible = false
-end)
-
--- Tabs area
-local Tabs = Instance.new("Frame", Main)
-Tabs.Size = UDim2.new(1, -20, 0, 38)
-Tabs.Position = UDim2.new(0,10,0,58)
-Tabs.BackgroundTransparency = 1
-
--- Content area (scroll)
-local Content = Instance.new("ScrollingFrame", Main)
-Content.Size = UDim2.new(1, -20, 1, -120)
-Content.Position = UDim2.new(0,10,0,110)
-Content.CanvasSize = UDim2.new(0,0,0,1000)
-Content.ScrollBarImageTransparency = 0.4
-Content.BackgroundTransparency = 1
-Content.AutomaticCanvasSize = Enum.AutomaticSize.Y
-local UIList = Instance.new("UIListLayout", Content)
-UIList.Padding = UDim.new(0,10)
-UIList.SortOrder = Enum.SortOrder.LayoutOrder
-
-local function ClearContent()
-    for _,v in ipairs(Content:GetChildren()) do
-        if v:IsA("Frame") or v:IsA("TextButton") then
-            v:Destroy()
+local function applyHitbox(state)
+    for _,plr in ipairs(Players:GetPlayers()) do
+        if plr ~= player and plr.Character then
+            local hrp = getHRP(plr.Character)
+            if hrp then
+                if state then
+                    hrp.Size = Vector3.new(
+                        STATE.HitboxSize,
+                        STATE.HitboxSize,
+                        STATE.HitboxSize
+                    )
+                    hrp.Transparency = 0.7
+                    hrp.CanCollide = false
+                else
+                    hrp.Size = Vector3.new(2,2,1)
+                    hrp.Transparency = 1
+                    hrp.CanCollide = false
+                end
+            end
         end
     end
 end
 
-local function MakeButton(text, parent, callback)
-    parent = parent or Content
-    local b = Instance.new("TextButton", parent)
-    b.Size = UDim2.new(1,0,0,56)
-    b.BackgroundColor3 = Color3.fromRGB(42,42,52)
-    b.Text = text
-    b.Font = Enum.Font.GothamBold
-    b.TextSize = 16
-    b.TextColor3 = Color3.new(1,1,1)
-    Instance.new("UICorner", b).CornerRadius = UDim.new(0,12)
-    b.AutoButtonColor = true
-    b.MouseButton1Click:Connect(function()
-        pcall(callback)
-    end)
-    return b
+--==================================================
+-- FLY SYSTEM
+--==================================================
+local flyBV, flyBG
+local function setFly(state)
+    local char = player.Character
+    local hrp = char and char:FindFirstChild("HumanoidRootPart")
+    if not hrp then return end
+
+    if state then
+        flyBV = Instance.new("BodyVelocity", hrp)
+        flyBG = Instance.new("BodyGyro", hrp)
+        flyBV.Velocity = Vector3.zero
+        flyBV.MaxForce = Vector3.new(1e9,1e9,1e9)
+        flyBG.MaxTorque = Vector3.new(1e9,1e9,1e9)
+        flyBG.CFrame = hrp.CFrame
+    else
+        if flyBV then flyBV:Destroy() end
+        if flyBG then flyBG:Destroy() end
+    end
 end
 
---================================
--- FIX LAG (Main tab)
---================================
-local function LoadMainTab()
-    ClearContent()
-    MakeButton("Disable All Effects\n(Tắt hiệu ứng)", Content, function()
-        for _,v in ipairs(workspace:GetDescendants()) do
-            if v:IsA("ParticleEmitter") or v:IsA("Trail") or v:IsA("Beam")
-            or v:IsA("Smoke") or v:IsA("Fire") then
+RunService.RenderStepped:Connect(function()
+    if STATE.Fly and flyBV then
+        local move = Vector3.zero
+        if UIS:IsKeyDown(Enum.KeyCode.W) then move += camera.CFrame.LookVector end
+        if UIS:IsKeyDown(Enum.KeyCode.S) then move -= camera.CFrame.LookVector end
+        if UIS:IsKeyDown(Enum.KeyCode.A) then move -= camera.CFrame.RightVector end
+        if UIS:IsKeyDown(Enum.KeyCode.D) then move += camera.CFrame.RightVector end
+        flyBV.Velocity = move * 60
+    end
+end)
+
+--==================================================
+-- NOCLIP
+--==================================================
+RunService.Stepped:Connect(function()
+    if STATE.Noclip and player.Character then
+        for _,v in ipairs(player.Character:GetDescendants()) do
+            if v:IsA("BasePart") then
+                v.CanCollide = false
+            end
+        end
+    end
+end)
+
+--==================================================
+-- CLICK TELEPORT
+--==================================================
+UIS.InputBegan:Connect(function(input)
+    if STATE.ClickTP and input.UserInputType == Enum.UserInputType.MouseButton1 then
+        local mouse = player:GetMouse()
+        if mouse.Hit then
+            local hrp = getHRP(player.Character)
+            if hrp then
+                hrp.CFrame = CFrame.new(mouse.Hit.Position + Vector3.new(0,3,0))
+            end
+        end
+    end
+end)
+
+--==================================================
+-- TABS
+--==================================================
+local MainTab = Window:CreateTab("⚙ Fix Lag", 4483362458)
+local HackTab = Window:CreateTab("💥 Hack", 4483345990)
+
+--==================================================
+-- FIX LAG TAB (GIỮ NGUYÊN)
+--==================================================
+MainTab:CreateButton({
+    Name = "🚀 Master Fix Lag",
+    Callback = function()
+        Lighting.GlobalShadows = false
+        for _,v in ipairs(Lighting:GetChildren()) do
+            if v:IsA("PostEffect") then
                 v.Enabled = false
             end
         end
-    end)
-
-    MakeButton("Disable Post Effects\n(Tắt bloom/blur)", Content, function()
-        for _,v in ipairs(Lighting:GetChildren()) do
-            if v:IsA("PostEffect") then v.Enabled = false end
-        end
-    end)
-
-    MakeButton("Disable Shadows\n(Tắt bóng)", Content, function()
-        Lighting.GlobalShadows = false
-    end)
-
-    MakeButton("Mute All Sounds\n(Tắt âm thanh)", Content, function()
         for _,s in ipairs(workspace:GetDescendants()) do
-            if s:IsA("Sound") then s.Volume = 0 end
-        end
-    end)
-
-    MakeButton("Gray All Characters\n(Nhân vật xám)", Content, function()
-        for _,m in ipairs(workspace:GetChildren()) do
-            if m:IsA("Model") and m:FindFirstChild("Humanoid") then
-                for _,p in ipairs(m:GetDescendants()) do
-                    if p:IsA("BasePart") then
-                        p.Material = Enum.Material.Plastic
-                        p.Color = Color3.fromRGB(150,150,150)
-                        p.CastShadow = false
-                    end
-                    if p:IsA("Decal") or p:IsA("Texture") then p:Destroy() end
-                end
-            end
-        end
-    end)
-end
-
---================================
--- HITBOX HANDLER (existing)
---================================
-_G.HITBOX = _G.HITBOX or {
-    Enabled = false,
-    CharSize = 8,
-    ToolSize = 6
-}
-local DEFAULT_HRP = Vector3.new(2,2,1)
-
-local function HRP(c) if not c then return nil end return c:FindFirstChild("HumanoidRootPart") end
-
-local function ApplyCharHitbox()
-    for _,m in ipairs(workspace:GetChildren()) do
-        if m:IsA("Model") and m:FindFirstChild("Humanoid") then
-            local pl = Players:GetPlayerFromCharacter(m)
-            if pl ~= LocalPlayer then
-                local h = HRP(m)
-                if h then
-                    if _G.HITBOX.Enabled then
-                        h.Size = Vector3.new(_G.HITBOX.CharSize,_G.HITBOX.CharSize,_G.HITBOX.CharSize)
-                        h.Transparency = 0.7
-                        h.CanCollide = false
-                    else
-                        h.Size = DEFAULT_HRP
-                        h.Transparency = 1
-                    end
-                end
+            if s:IsA("Sound") then
+                s.Volume = 0
             end
         end
     end
-end
+})
 
-local function ApplyToolHitbox()
-    local c = LocalPlayer.Character
-    if not c then return end
-    for _,t in ipairs(c:GetChildren()) do
-        if t:IsA("Tool") then
-            for _,p in ipairs(t:GetDescendants()) do
-                if p:IsA("BasePart") then
-                    if _G.HITBOX.Enabled then
-                        p.Size = Vector3.new(_G.HITBOX.ToolSize,_G.HITBOX.ToolSize,_G.HITBOX.ToolSize)
-                        p.CanCollide = false
-                    end
-                end
-            end
+--==================================================
+-- HACK TAB
+--==================================================
+
+HackTab:CreateToggle({
+    Name = "🎯 Hitbox (Player)",
+    CurrentValue = false,
+    Callback = function(v)
+        STATE.HitboxOn = v
+        applyHitbox(v)
+    end
+})
+
+HackTab:CreateSlider({
+    Name = "📏 Hitbox Size",
+    Range = {2, 20},
+    Increment = 1,
+    CurrentValue = 6,
+    Callback = function(v)
+        STATE.HitboxSize = v
+        if STATE.HitboxOn then
+            applyHitbox(true)
         end
     end
-end
+})
 
--- Auto apply on new players/NPCs
-Players.PlayerAdded:Connect(function(p)
-    p.CharacterAdded:Connect(function()
-        task.wait(0.6)
-        if _G.HITBOX.Enabled then ApplyCharHitbox() end
-    end)
-end)
-workspace.ChildAdded:Connect(function(child)
-    task.wait(0.4)
-    if _G.HITBOX.Enabled then ApplyCharHitbox() end
-end)
-
---================================
--- HACK TAB: add many features
---================================
--- Internal states for hacks
-local HACK = {
-    Fly = {Enabled=false, Speed=60},
-    Noclip = {Enabled=false},
-    ClickTP = {Enabled=false, Debounce=false},
-    Speed = {Enabled=false, Value=30, Default=16},
-    Jump = {Enabled=false, Value=80, Default=50},
-    InfiniteJump = {Enabled=false},
-    Invisible = {Enabled=false, SavedTransparency={}},
-}
-
--- Utility: humanoid getter
-local function GetHumanoid(char)
-    if not char then return nil end
-    return char:FindFirstChildOfClass("Humanoid")
-end
-
--- ----------------------------
--- FLY (WASD + Space + Shift)
--- ----------------------------
-local flyConn, flyBV, flyBG
-local function StartFly()
-    local char = LocalPlayer.Character
-    if not char then return end
-    local hrp = HRP(char)
-    local hum = GetHumanoid(char)
-    if not hrp or not hum then return end
-
-    -- prevent duplicate
-    if flyBV then flyBV:Destroy() end
-    if flyBG then flyBG:Destroy() end
-
-    flyBV = Instance.new("BodyVelocity")
-    flyBV.Name = "MTH_FlyBV"
-    flyBV.MaxForce = Vector3.new(9e5,9e5,9e5)
-    flyBV.Velocity = Vector3.new(0,0,0)
-    flyBV.Parent = hrp
-
-    flyBG = Instance.new("BodyGyro")
-    flyBG.Name = "MTH_FlyBG"
-    flyBG.MaxTorque = Vector3.new(9e5,9e5,9e5)
-    flyBG.P = 9e4
-    flyBG.CFrame = hrp.CFrame
-    flyBG.Parent = hrp
-
-    local UIS = UserInputService
-    local speed = HACK.Fly.Speed
-
-    flyConn = RunService.RenderStepped:Connect(function()
-        if not hrp or not hrp.Parent then return end
-        local cam = workspace.CurrentCamera
-        local move = Vector3.new()
-        if UIS:IsKeyDown(Enum.KeyCode.W) then move = move + cam.CFrame.LookVector end
-        if UIS:IsKeyDown(Enum.KeyCode.S) then move = move - cam.CFrame.LookVector end
-        if UIS:IsKeyDown(Enum.KeyCode.A) then move = move - cam.CFrame.RightVector end
-        if UIS:IsKeyDown(Enum.KeyCode.D) then move = move + cam.CFrame.RightVector end
-        if UIS:IsKeyDown(Enum.KeyCode.Space) then move = move + Vector3.new(0,1,0) end
-        if UIS:IsKeyDown(Enum.KeyCode.LeftShift) then move = move - Vector3.new(0,1,0) end
-
-        if move.Magnitude > 0 then
-            local vel = move.Unit * speed
-            flyBV.Velocity = Vector3.new(vel.X, vel.Y, vel.Z)
-            flyBG.CFrame = CFrame.new(hrp.Position, hrp.Position + cam.CFrame.LookVector)
-        else
-            flyBV.Velocity = Vector3.new(0,0,0)
-        end
-    end)
-end
-
-local function StopFly()
-    if flyConn then flyConn:Disconnect(); flyConn = nil end
-    if flyBV then flyBV:Destroy(); flyBV = nil end
-    if flyBG then flyBG:Destroy(); flyBG = nil end
-end
-
--- ----------------------------
--- NOCLIP (set CanCollide false continuously)
--- ----------------------------
-local noclipConn
-local function StartNoclip()
-    if noclipConn then return end
-    noclipConn = RunService.Stepped:Connect(function()
-        local char = LocalPlayer.Character
-        if not char then return end
-        for _,p in ipairs(char:GetDescendants()) do
-            if p:IsA("BasePart") then
-                p.CanCollide = false
-            end
-        end
-    end)
-end
-local function StopNoclip()
-    if noclipConn then noclipConn:Disconnect(); noclipConn = nil end
-    -- no forced restore of collisions (can't reliably restore original state)
-end
-
--- ----------------------------
--- CLICK TELEPORT
--- ----------------------------
-local mouse = LocalPlayer:GetMouse()
-local function ClickTeleportTo(pos)
-    local char = LocalPlayer.Character
-    if not char then return end
-    local hrp = HRP(char)
-    if not hrp then return end
-    local target = CFrame.new(pos + Vector3.new(0,3,0))
-    pcall(function()
-        hrp.CFrame = target
-    end)
-end
-
--- ----------------------------
--- SPEED & JUMP
--- ----------------------------
-local savedWalkSpeed = nil
-local savedJumpPower = nil
-local function ApplySpeed(v)
-    local char = LocalPlayer.Character
-    local hum = GetHumanoid(char)
-    if hum then
-        hum.WalkSpeed = v
+HackTab:CreateToggle({
+    Name = "🕊 Fly (WASD)",
+    CurrentValue = false,
+    Callback = function(v)
+        STATE.Fly = v
+        setFly(v)
     end
-end
-local function ApplyJump(v)
-    local char = LocalPlayer.Character
-    local hum = GetHumanoid(char)
-    if hum then
-        hum.JumpPower = v
+})
+
+HackTab:CreateToggle({
+    Name = "🚪 Noclip",
+    CurrentValue = false,
+    Callback = function(v)
+        STATE.Noclip = v
     end
-end
+})
 
--- ----------------------------
--- INFINITE JUMP
--- ----------------------------
-local infJumpConn
-local function StartInfiniteJump()
-    if infJumpConn then return end
-    infJumpConn = UserInputService.JumpRequest:Connect(function()
-        local char = LocalPlayer.Character
-        local hum = GetHumanoid(char)
-        if hum then
-            hum:ChangeState(Enum.HumanoidStateType.Jumping)
-        end
-    end)
-end
-local function StopInfiniteJump()
-    if infJumpConn then infJumpConn:Disconnect(); infJumpConn = nil end
-end
-
--- ----------------------------
--- INVISIBILITY (client-side visuals only)
--- ----------------------------
-local invisSaved = {}
-local function StartInvisible()
-    local char = LocalPlayer.Character
-    if not char then return end
-    invisSaved = {}
-    for _,p in ipairs(char:GetDescendants()) do
-        if p:IsA("BasePart") then
-            invisSaved[p] = p.Transparency
-            p.Transparency = 1
-        elseif p:IsA("Decal") then
-            invisSaved[p] = p.Transparency
-            p.Transparency = 1
-        end
+HackTab:CreateToggle({
+    Name = "🖱 Click Teleport",
+    CurrentValue = false,
+    Callback = function(v)
+        STATE.ClickTP = v
     end
-end
-local function StopInvisible()
-    local char = LocalPlayer.Character
-    if not char then return end
-    for obj,trans in pairs(invisSaved) do
-        if obj and obj.Parent then
-            pcall(function() obj.Transparency = trans end)
-        end
-    end
-    invisSaved = {}
-end
+})
 
--- ----------------------------
--- CLICK TELEPORT HANDLER (toggle)
--- ----------------------------
-local clickConn
-local function StartClickTeleport()
-    if clickConn then return end
-    clickConn = mouse.Button1Down:Connect(function()
-        if HACK.ClickTP.Debounce then return end
-        HACK.ClickTP.Debounce = true
-        local pos = mouse.Hit and mouse.Hit.Position
-        if pos then ClickTeleportTo(pos) end
-        task.wait(0.2)
-        HACK.ClickTP.Debounce = false
-    end)
-end
-local function StopClickTeleport()
-    if clickConn then clickConn:Disconnect(); clickConn = nil end
-end
+--==================================================
+-- CREDIT
+--==================================================
+HackTab:CreateLabel("👑 Minh Thuận Hub")
+HackTab:CreateLabel("Author: Dương Minh Thuận")
+HackTab:CreateLabel("Client-side | Universal")
 
--- ----------------------------
--- SAFE RESET for toggles
--- ----------------------------
-local function DisableAllHacks()
-    -- Fly
-    HACK.Fly.Enabled = false; StopFly()
-    -- Noclip
-    HACK.Noclip.Enabled = false; StopNoclip()
-    -- ClickTP
-    HACK.ClickTP.Enabled = false; StopClickTeleport()
-    -- Speed / Jump restore
-    local char = LocalPlayer.Character
-    local hum = GetHumanoid(char)
-    if hum then
-        hum.WalkSpeed = HACK.Speed.Default
-        hum.JumpPower = HACK.Jump.Default
-    end
-    HACK.Speed.Enabled = false
-    HACK.Jump.Enabled = false
-    -- Infinite jump
-    HACK.InfiniteJump.Enabled = false; StopInfiniteJump()
-    -- Invisible
-    HACK.Invisible.Enabled = false; StopInvisible()
-end
-
--- ----------------------------
--- Apply updates helper
--- ----------------------------
-local function UpdateAllApplied()
-    -- Hitbox
-    ApplyCharHitbox()
-    ApplyToolHitbox()
-    -- Fly
-    if HACK.Fly.Enabled then StartFly() else StopFly() end
-    -- Noclip
-    if HACK.Noclip.Enabled then StartNoclip() else StopNoclip() end
-    -- ClickTP
-    if HACK.ClickTP.Enabled then StartClickTeleport() else StopClickTeleport() end
-    -- Speed, Jump
-    if HACK.Speed.Enabled then ApplySpeed(HACK.Speed.Value) else
-        ApplySpeed(HACK.Speed.Default)
-    end
-    if HACK.Jump.Enabled then ApplyJump(HACK.Jump.Value) else
-        ApplyJump(HACK.Jump.Default)
-    end
-    -- Infinite jump
-    if HACK.InfiniteJump.Enabled then StartInfiniteJump() else StopInfiniteJump() end
-    -- Invisible
-    if HACK.Invisible.Enabled then StartInvisible() else StopInvisible() end
-end
-
--- -----------------------------------
--- Load Hack Tab (buttons + toggles)
--- -----------------------------------
-local function LoadHackTab()
-    ClearContent()
-
-    -- Hitbox controls (existing)
-    MakeButton("Toggle Hitbox (Player+NPC)", Content, function()
-        _G.HITBOX.Enabled = not _G.HITBOX.Enabled
-        ApplyCharHitbox()
-        ApplyToolHitbox()
-    end)
-
-    MakeButton("Character Hitbox +", Content, function()
-        _G.HITBOX.CharSize = (_G.HITBOX.CharSize or 8) + 2
-        if _G.HITBOX.Enabled then ApplyCharHitbox() end
-    end)
-    MakeButton("Character Hitbox -", Content, function()
-        _G.HITBOX.CharSize = math.max(2, (_G.HITBOX.CharSize or 8) - 2)
-        if _G.HITBOX.Enabled then ApplyCharHitbox() end
-    end)
-    MakeButton("Tool Hitbox +", Content, function()
-        _G.HITBOX.ToolSize = (_G.HITBOX.ToolSize or 6) + 2
-        if _G.HITBOX.Enabled then ApplyToolHitbox() end
-    end)
-    MakeButton("Tool Hitbox -", Content, function()
-        _G.HITBOX.ToolSize = math.max(2, (_G.HITBOX.ToolSize or 6) - 2)
-        if _G.HITBOX.Enabled then ApplyToolHitbox() end
-    end)
-
-    -- ===== HACKS (new) =====
-    -- Fly toggle
-    MakeButton("Toggle Fly (W/A/S/D + Space + Shift)", Content, function()
-        HACK.Fly.Enabled = not HACK.Fly.Enabled
-        if HACK.Fly.Enabled then StartFly() else StopFly() end
-    end)
-
-    -- Fly speed controls
-    MakeButton("Fly Speed +", Content, function()
-        HACK.Fly.Speed = (HACK.Fly.Speed or 60) + 10
-        if HACK.Fly.Enabled then StartFly() end
-    end)
-    MakeButton("Fly Speed -", Content, function()
-        HACK.Fly.Speed = math.max(10, (HACK.Fly.Speed or 60) - 10)
-        if HACK.Fly.Enabled then StartFly() end
-    end)
-
-    -- Noclip toggle
-    MakeButton("Toggle Noclip (Walk through walls)", Content, function()
-        HACK.Noclip.Enabled = not HACK.Noclip.Enabled
-        if HACK.Noclip.Enabled then StartNoclip() else StopNoclip() end
-    end)
-
-    -- Click teleport toggle
-    MakeButton("Toggle Click Teleport", Content, function()
-        HACK.ClickTP.Enabled = not HACK.ClickTP.Enabled
-        if HACK.ClickTP.Enabled then StartClickTeleport() else StopClickTeleport() end
-    end)
-
-    -- Speed / Jump toggle + controls
-    MakeButton("Toggle Speed Boost (WalkSpeed)", Content, function()
-        HACK.Speed.Enabled = not HACK.Speed.Enabled
-        if HACK.Speed.Enabled then
-            HACK.Speed.Value = HACK.Speed.Value or 30
-            local hum = GetHumanoid(LocalPlayer.Character)
-            if hum then hum.WalkSpeed = HACK.Speed.Value end
-        else
-            local hum = GetHumanoid(LocalPlayer.Character)
-            if hum then hum.WalkSpeed = HACK.Speed.Default end
-        end
-    end)
-    MakeButton("WalkSpeed +", Content, function()
-        HACK.Speed.Value = (HACK.Speed.Value or 30) + 5
-        if HACK.Speed.Enabled then ApplySpeed(HACK.Speed.Value) end
-    end)
-    MakeButton("WalkSpeed -", Content, function()
-        HACK.Speed.Value = math.max(8, (HACK.Speed.Value or 30) - 5)
-        if HACK.Speed.Enabled then ApplySpeed(HACK.Speed.Value) end
-    end)
-
-    -- Jump power
-    MakeButton("Toggle Jump Boost", Content, function()
-        HACK.Jump.Enabled = not HACK.Jump.Enabled
-        if HACK.Jump.Enabled then
-            HACK.Jump.Value = HACK.Jump.Value or 80
-            ApplyJump(HACK.Jump.Value)
-        else
-            ApplyJump(HACK.Jump.Default)
-        end
-    end)
-    MakeButton("Jump +", Content, function()
-        HACK.Jump.Value = (HACK.Jump.Value or 80) + 10
-        if HACK.Jump.Enabled then ApplyJump(HACK.Jump.Value) end
-    end)
-    MakeButton("Jump -", Content, function()
-        HACK.Jump.Value = math.max(20, (HACK.Jump.Value or 80) - 10)
-        if HACK.Jump.Enabled then ApplyJump(HACK.Jump.Value) end
-    end)
-
-    -- Infinite jump
-    MakeButton("Toggle Infinite Jump", Content, function()
-        HACK.InfiniteJump.Enabled = not HACK.InfiniteJump.Enabled
-        if HACK.InfiniteJump.Enabled then StartInfiniteJump() else StopInfiniteJump() end
-    end)
-
-    -- Invisible (client-side)
-    MakeButton("Toggle Invisible (client)", Content, function()
-        HACK.Invisible.Enabled = not HACK.Invisible.Enabled
-        if HACK.Invisible.Enabled then StartInvisible() else StopInvisible() end
-    end)
-
-    -- Reset all hacks
-    MakeButton("Reset All Hacks (Disable)", Content, function()
-        DisableAllHacks()
-    end)
-
-    -- Quick info
-    MakeButton("Click Teleport Now (instant)", Content, function()
-        local pos = mouse.Hit and mouse.Hit.Position
-        if pos then ClickTeleportTo(pos) end
-    end)
-end
-
---================================
--- TAB Buttons creation
---================================
-local MainTabBtn = Instance.new("TextButton", Tabs)
-MainTabBtn.Size = UDim2.new(0.33,0,1,0)
-MainTabBtn.Position = UDim2.new(0,0,0,0)
-MainTabBtn.Text = "MAIN"
-MainTabBtn.Font = Enum.Font.GothamBold
-MainTabBtn.TextSize = 14
-MainTabBtn.BackgroundTransparency = 1
-MainTabBtn.TextColor3 = Color3.new(1,1,1)
-
-local HackTabBtn = Instance.new("TextButton", Tabs)
-HackTabBtn.Size = UDim2.new(0.33,0,1,0)
-HackTabBtn.Position = UDim2.new(0.33,0,0,0)
-HackTabBtn.Text = "HACK"
-HackTabBtn.Font = Enum.Font.GothamBold
-HackTabBtn.TextSize = 14
-HackTabBtn.BackgroundTransparency = 1
-HackTabBtn.TextColor3 = Color3.new(1,1,1)
-
-local MiscTabBtn = Instance.new("TextButton", Tabs)
-MiscTabBtn.Size = UDim2.new(0.34,0,1,0)
-MiscTabBtn.Position = UDim2.new(0.66,0,0,0)
-MiscTabBtn.Text = "MISC"
-MiscTabBtn.Font = Enum.Font.GothamBold
-MiscTabBtn.TextSize = 14
-MiscTabBtn.BackgroundTransparency = 1
-MiscTabBtn.TextColor3 = Color3.new(1,1,1)
-
-MainTabBtn.MouseButton1Click:Connect(function() LoadMainTab() end)
-HackTabBtn.MouseButton1Click:Connect(function() LoadHackTab() end)
-MiscTabBtn.MouseButton1Click:Connect(function()
-    ClearContent()
-    MakeButton("Find Low Player Server", Content, function()
-        local url = "https://games.roblox.com/v1/games/"..game.PlaceId.."/servers/Public?limit=100"
-        local ok, data = pcall(function() return HttpService:JSONDecode(game:HttpGet(url)) end)
-        if ok and data and data.data and data.data[1] then
-            TeleportService:TeleportToPlaceInstance(game.PlaceId, data.data[1].id, LocalPlayer)
-        end
-    end)
-    MakeButton("Rejoin Server", Content, function()
-        TeleportService:Teleport(game.PlaceId)
-    end)
-end)
-
--- Load default tab
-LoadMainTab()
-
---================================
--- CLEANUP ON UNLOAD (optional)
---================================
--- You can call this to disable all hacks and remove GUI if needed.
-local function UnloadHub()
-    DisableAllHacks()
-    if ScreenGui and ScreenGui.Parent then ScreenGui:Destroy() end
-    getgenv().MinhThuanHub = nil
-end
-
--- Print loaded
-print("🔧 Minh Thuận Hub loaded with Hitbox + Hacks (Fly, Noclip, ClickTP, Speed, Jump, Invisible, etc.)")
+Rayfield:Notify({
+    Title = "Minh Thuận Hub",
+    Content = "Load thành công!\nFix Lag + Hack đã sẵn sàng",
+    Duration = 5
+})
