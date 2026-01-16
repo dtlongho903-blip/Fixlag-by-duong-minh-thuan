@@ -1,234 +1,1413 @@
---==================================================
--- MINH THUẬN HUB - UNIVERSAL (FIX LAG + HACK)
--- CLIENT SIDE ONLY
--- Author: Dương Minh Thuận
---==================================================
+--==========================================================
+-- MINH THUẬN ULTIMATE HUB | FIX LAG + HACK + HITBOX EXPANDER
+--==========================================================
+-- Developer: Dương Minh Thuận
+-- Version: 3.1 Fixed Edition
+-- Fix: Scroll tab HACK + Thêm slider điều chỉnh
 
-if getgenv().MINHTHUAN_HUB then return end
-getgenv().MINHTHUAN_HUB = true
+if getgenv().MINHTHUAN_ULTIMATE then return end
+getgenv().MINHTHUAN_ULTIMATE = true
 
--- Services
+---------------- SERVICES ----------------
 local Players = game:GetService("Players")
 local RunService = game:GetService("RunService")
-local Lighting = game:GetService("Lighting")
 local UIS = game:GetService("UserInputService")
+local Lighting = game:GetService("Lighting")
+local TeleportService = game:GetService("TeleportService")
+local TweenService = game:GetService("TweenService")
+local HttpService = game:GetService("HttpService")
 local player = Players.LocalPlayer
-local camera = workspace.CurrentCamera
 
---==================================================
--- LOAD RAYFIELD
---==================================================
-local Rayfield = loadstring(game:HttpGet(
-    "https://raw.githubusercontent.com/shlexware/Rayfield/main/source"
-))()
-
---==================================================
--- WINDOW
---==================================================
-local Window = Rayfield:CreateWindow({
-    Name = "🟣 Minh Thuận Hub",
-    LoadingTitle = "Minh Thuận Hub",
-    LoadingSubtitle = "Fix Lag & Hack Universal",
-    ConfigurationSaving = { Enabled = false },
-    Discord = { Enabled = false },
-    KeySystem = false,
-    Theme = {
-        TextColor = Color3.fromRGB(230,230,255),
-        Background = Color3.fromRGB(40,20,60),
-        Topbar = Color3.fromRGB(60,30,90),
-        Shadow = Color3.fromRGB(20,10,30),
-        Accent = Color3.fromRGB(170,90,255)
-    }
-})
-
---==================================================
--- STATE
---==================================================
-local STATE = {
-    HitboxOn = false,
-    HitboxSize = 6,
-    Fly = false,
-    Noclip = false,
-    ClickTP = false
+---------------- CONFIGURATION ----------------
+local CONFIG = {
+    ThemeColor = Color3.fromRGB(80, 40, 130),
+    DarkColor = Color3.fromRGB(45, 20, 70),
+    LightColor = Color3.fromRGB(90, 50, 140),
+    TextColor = Color3.fromRGB(255, 255, 255),
+    ShadowColor = Color3.fromRGB(0, 0, 0),
+    Font = Enum.Font.GothamSemibold,
+    TitleFont = Enum.Font.GothamBold
 }
 
---==================================================
--- HITBOX SYSTEM
---==================================================
-local function getHRP(char)
-    return char and char:FindFirstChild("HumanoidRootPart")
+---------------- STATE ----------------
+local STATE = {
+    -- Fix Lag States
+    FX = false,
+    SOUND = false,
+    SHADOW = false,
+    LOWGFX = false,
+    TEXTURES = false,
+    POSTFX = false,
+    GRAYCHARS = false,
+    
+    -- Hack States
+    NOCLIP = false,
+    SPEED = false,
+    SPEED_VALUE = 50, -- Giá trị tốc độ
+    JUMP = false,
+    JUMP_VALUE = 100, -- Giá trị độ cao nhảy
+    FLY = false,
+    FLY_VALUE = 50, -- Giá trị tốc độ bay
+    INFJUMP = false,
+    ESP = false,
+    
+    -- Hitbox States
+    HITBOX_ENABLED = false,
+    HITBOX_SIZE = 6,
+    HITBOX_TRANSPARENCY = 0.5,
+    TOOL_HITBOX_ENABLED = false,
+    TOOL_HITBOX_SIZE = 10,
+    
+    -- GUI States
+    GUI_VISIBLE = true,
+    MINIMIZED = false
+}
+
+---------------- HITBOX VARIABLES ----------------
+local hitboxParts = {}
+local toolHitbox = nil
+local hitboxConnections = {}
+local noclipConnection = nil
+local flyConnection = nil
+local flyBodyVel = nil
+local jumpConnection = nil
+local espHighlights = {}
+
+---------------- GUI PARENT ----------------
+local parent
+pcall(function() 
+    parent = game.CoreGui 
+    if not parent then parent = player:WaitForChild("PlayerGui") end
+end)
+if not parent then parent = player:WaitForChild("PlayerGui") end
+
+---------------- UTILITY FUNCTIONS ----------------
+local function createShadow(parent, size)
+    local shadow = Instance.new("ImageLabel")
+    shadow.Name = "Shadow"
+    shadow.Image = "rbxassetid://1316045217"
+    shadow.ImageColor3 = CONFIG.ShadowColor
+    shadow.ImageTransparency = 0.8
+    shadow.ScaleType = Enum.ScaleType.Slice
+    shadow.SliceCenter = Rect.new(10, 10, 118, 118)
+    shadow.BackgroundTransparency = 1
+    shadow.Size = size
+    shadow.Position = UDim2.new(0, -15, 0, -15)
+    shadow.ZIndex = parent.ZIndex - 1
+    shadow.Parent = parent
+    return shadow
 end
 
-local function applyHitbox(state)
-    for _,plr in ipairs(Players:GetPlayers()) do
-        if plr ~= player and plr.Character then
-            local hrp = getHRP(plr.Character)
-            if hrp then
-                if state then
-                    hrp.Size = Vector3.new(
-                        STATE.HitboxSize,
-                        STATE.HitboxSize,
-                        STATE.HitboxSize
-                    )
-                    hrp.Transparency = 0.7
-                    hrp.CanCollide = false
-                else
-                    hrp.Size = Vector3.new(2,2,1)
-                    hrp.Transparency = 1
-                    hrp.CanCollide = false
+local function tweenProperty(instance, property, goal, duration)
+    local tweenInfo = TweenInfo.new(duration, Enum.EasingStyle.Quad, Enum.EasingDirection.Out)
+    local tween = TweenService:Create(instance, tweenInfo, {[property] = goal})
+    tween:Play()
+    return tween
+end
+
+---------------- HITBOX FUNCTIONS ----------------
+local function createHitboxPart(character, size, transparency)
+    if not character or not character.PrimaryPart then return nil end
+    
+    local hitbox = Instance.new("Part")
+    hitbox.Name = "HitboxExpander"
+    hitbox.Size = Vector3.new(size, size, size)
+    hitbox.Transparency = transparency
+    hitbox.CanCollide = false
+    hitbox.CanTouch = false
+    hitbox.CanQuery = false
+    hitbox.Anchored = false
+    hitbox.Material = Enum.Material.Neon
+    hitbox.Color = Color3.fromRGB(255, 50, 50)
+    hitbox.Parent = character
+    
+    local weld = Instance.new("Weld")
+    weld.Part0 = character.PrimaryPart
+    weld.Part1 = hitbox
+    weld.C0 = CFrame.new()
+    weld.Parent = hitbox
+    
+    return hitbox
+end
+
+local function updateAllHitboxes()
+    for _, hitbox in pairs(hitboxParts) do
+        if hitbox and hitbox.Parent then
+            hitbox:Destroy()
+        end
+    end
+    hitboxParts = {}
+    
+    if not STATE.HITBOX_ENABLED then return end
+    
+    for _, model in pairs(workspace:GetChildren()) do
+        if model:IsA("Model") then
+            local humanoid = model:FindFirstChildOfClass("Humanoid")
+            if humanoid and model ~= player.Character then
+                local hitbox = createHitboxPart(model, STATE.HITBOX_SIZE, STATE.HITBOX_TRANSPARENCY)
+                if hitbox then
+                    table.insert(hitboxParts, hitbox)
                 end
             end
         end
     end
 end
 
---==================================================
--- FLY SYSTEM
---==================================================
-local flyBV, flyBG
-local function setFly(state)
-    local char = player.Character
-    local hrp = char and char:FindFirstChild("HumanoidRootPart")
-    if not hrp then return end
+local function updateToolHitbox()
+    if toolHitbox and toolHitbox.Parent then
+        toolHitbox:Destroy()
+        toolHitbox = nil
+    end
+    
+    if not STATE.TOOL_HITBOX_ENABLED then return end
+    
+    local character = player.Character
+    if not character then return end
+    
+    local tool = character:FindFirstChildOfClass("Tool")
+    if not tool then return end
+    
+    local handle = tool:FindFirstChild("Handle")
+    if not handle then return end
+    
+    toolHitbox = Instance.new("Part")
+    toolHitbox.Name = "ToolHitbox"
+    toolHitbox.Size = Vector3.new(STATE.TOOL_HITBOX_SIZE, STATE.TOOL_HITBOX_SIZE, STATE.TOOL_HITBOX_SIZE)
+    toolHitbox.Transparency = 0.5
+    toolHitbox.CanCollide = false
+    toolHitbox.CanTouch = false
+    toolHitbox.CanQuery = false
+    toolHitbox.Anchored = false
+    toolHitbox.Material = Enum.Material.Neon
+    toolHitbox.Color = Color3.fromRGB(50, 255, 50)
+    toolHitbox.Parent = tool
+    
+    local weld = Instance.new("Weld")
+    weld.Part0 = handle
+    weld.Part1 = toolHitbox
+    weld.C0 = CFrame.new()
+    weld.Parent = toolHitbox
+end
 
-    if state then
-        flyBV = Instance.new("BodyVelocity", hrp)
-        flyBG = Instance.new("BodyGyro", hrp)
-        flyBV.Velocity = Vector3.zero
-        flyBV.MaxForce = Vector3.new(1e9,1e9,1e9)
-        flyBG.MaxTorque = Vector3.new(1e9,1e9,1e9)
-        flyBG.CFrame = hrp.CFrame
-    else
-        if flyBV then flyBV:Destroy() end
-        if flyBG then flyBG:Destroy() end
+local function setupHitboxConnections()
+    for _, conn in pairs(hitboxConnections) do
+        conn:Disconnect()
+    end
+    hitboxConnections = {}
+    
+    local conn1 = workspace.ChildAdded:Connect(function(child)
+        wait(0.5)
+        if child:IsA("Model") and STATE.HITBOX_ENABLED then
+            local humanoid = child:FindFirstChildOfClass("Humanoid")
+            if humanoid and child ~= player.Character then
+                local hitbox = createHitboxPart(child, STATE.HITBOX_SIZE, STATE.HITBOX_TRANSPARENCY)
+                if hitbox then
+                    table.insert(hitboxParts, hitbox)
+                end
+            end
+        end
+    end)
+    
+    table.insert(hitboxConnections, conn1)
+    
+    local conn2 = player.CharacterAdded:Connect(function(character)
+        wait(1)
+        local humanoid = character:WaitForChild("Humanoid", 5)
+        if humanoid then
+            local conn3 = humanoid.Changed:Connect(function()
+                updateToolHitbox()
+            end)
+            table.insert(hitboxConnections, conn3)
+        end
+        updateToolHitbox()
+    end)
+    
+    table.insert(hitboxConnections, conn2)
+    
+    if player.Backpack then
+        local conn4 = player.Backpack.ChildAdded:Connect(function()
+            updateToolHitbox()
+        end)
+        table.insert(hitboxConnections, conn4)
+        
+        local conn5 = player.Backpack.ChildRemoved:Connect(function()
+            updateToolHitbox()
+        end)
+        table.insert(hitboxConnections, conn5)
     end
 end
 
-RunService.RenderStepped:Connect(function()
-    if STATE.Fly and flyBV then
-        local move = Vector3.zero
-        if UIS:IsKeyDown(Enum.KeyCode.W) then move += camera.CFrame.LookVector end
-        if UIS:IsKeyDown(Enum.KeyCode.S) then move -= camera.CFrame.LookVector end
-        if UIS:IsKeyDown(Enum.KeyCode.A) then move -= camera.CFrame.RightVector end
-        if UIS:IsKeyDown(Enum.KeyCode.D) then move += camera.CFrame.RightVector end
-        flyBV.Velocity = move * 60
+---------------- HACK FUNCTIONS ----------------
+local function setupNoclip()
+    if noclipConnection then
+        noclipConnection:Disconnect()
+        noclipConnection = nil
     end
-end)
+    
+    if STATE.NOCLIP then
+        noclipConnection = RunService.Stepped:Connect(function()
+            if player.Character then
+                for _, part in ipairs(player.Character:GetDescendants()) do
+                    if part:IsA("BasePart") then
+                        part.CanCollide = false
+                    end
+                end
+            end
+        end)
+    else
+        if player.Character then
+            for _, part in ipairs(player.Character:GetDescendants()) do
+                if part:IsA("BasePart") then
+                    part.CanCollide = true
+                end
+            end
+        end
+    end
+end
 
---==================================================
--- NOCLIP
---==================================================
-RunService.Stepped:Connect(function()
-    if STATE.Noclip and player.Character then
-        for _,v in ipairs(player.Character:GetDescendants()) do
+local function setupSpeedHack()
+    local humanoid = player.Character and player.Character:FindFirstChildOfClass("Humanoid")
+    if humanoid then
+        humanoid.WalkSpeed = STATE.SPEED and STATE.SPEED_VALUE or 16
+    end
+end
+
+local function setupJumpHack()
+    local humanoid = player.Character and player.Character:FindFirstChildOfClass("Humanoid")
+    if humanoid then
+        humanoid.JumpPower = STATE.JUMP and STATE.JUMP_VALUE or 50
+    end
+end
+
+local function setupFlyHack()
+    if flyConnection then
+        flyConnection:Disconnect()
+        flyConnection = nil
+    end
+    
+    if flyBodyVel then
+        flyBodyVel:Destroy()
+        flyBodyVel = nil
+    end
+    
+    if STATE.FLY and player.Character and player.Character:FindFirstChild("HumanoidRootPart") then
+        flyBodyVel = Instance.new("BodyVelocity")
+        flyBodyVel.Velocity = Vector3.new(0, 0, 0)
+        flyBodyVel.MaxForce = Vector3.new(0, 0, 0)
+        flyBodyVel.Parent = player.Character.HumanoidRootPart
+        
+        flyConnection = RunService.Heartbeat:Connect(function()
+            if not player.Character or not player.Character:FindFirstChild("HumanoidRootPart") or not flyBodyVel then
+                return
+            end
+            
+            local root = player.Character.HumanoidRootPart
+            local cam = workspace.CurrentCamera
+            
+            local velocity = Vector3.new(0, 0, 0)
+            
+            if UIS:IsKeyDown(Enum.KeyCode.W) then
+                velocity = velocity + (cam.CFrame.LookVector * STATE.FLY_VALUE)
+            end
+            if UIS:IsKeyDown(Enum.KeyCode.S) then
+                velocity = velocity - (cam.CFrame.LookVector * STATE.FLY_VALUE)
+            end
+            if UIS:IsKeyDown(Enum.KeyCode.A) then
+                velocity = velocity - (cam.CFrame.RightVector * STATE.FLY_VALUE)
+            end
+            if UIS:IsKeyDown(Enum.KeyCode.D) then
+                velocity = velocity + (cam.CFrame.RightVector * STATE.FLY_VALUE)
+            end
+            if UIS:IsKeyDown(Enum.KeyCode.Space) then
+                velocity = velocity + Vector3.new(0, STATE.FLY_VALUE, 0)
+            end
+            if UIS:IsKeyDown(Enum.KeyCode.LeftShift) then
+                velocity = velocity - Vector3.new(0, STATE.FLY_VALUE, 0)
+            end
+            
+            flyBodyVel.Velocity = velocity
+            flyBodyVel.MaxForce = Vector3.new(40000, 40000, 40000)
+        end)
+    end
+end
+
+local function setupInfiniteJump()
+    if jumpConnection then
+        jumpConnection:Disconnect()
+        jumpConnection = nil
+    end
+    
+    if STATE.INFJUMP then
+        jumpConnection = UIS.InputBegan:Connect(function(input, gameProcessed)
+            if not gameProcessed and input.KeyCode == Enum.KeyCode.Space then
+                local humanoid = player.Character and player.Character:FindFirstChildOfClass("Humanoid")
+                if humanoid then
+                    humanoid:ChangeState(Enum.HumanoidStateType.Jumping)
+                end
+            end
+        end)
+    end
+end
+
+local function setupESP()
+    for _, highlight in pairs(espHighlights) do
+        if highlight and highlight.Parent then
+            highlight:Destroy()
+        end
+    end
+    espHighlights = {}
+    
+    if STATE.ESP then
+        local function createESP(character)
+            if character == player.Character then return end
+            
+            local highlight = Instance.new("Highlight")
+            highlight.Name = "ESP_Highlight"
+            highlight.FillColor = Color3.fromRGB(255, 0, 0)
+            highlight.FillTransparency = 0.7
+            highlight.OutlineColor = Color3.fromRGB(255, 255, 255)
+            highlight.OutlineTransparency = 0
+            highlight.Parent = character
+            
+            table.insert(espHighlights, highlight)
+        end
+        
+        for _, p in ipairs(Players:GetPlayers()) do
+            if p.Character then
+                createESP(p.Character)
+            end
+            p.CharacterAdded:Connect(createESP)
+        end
+    end
+end
+
+---------------- FIX LAG FUNCTIONS ----------------
+local function clearFX()
+    for _, v in ipairs(workspace:GetDescendants()) do
+        if v:IsA("ParticleEmitter") or v:IsA("Trail") or v:IsA("Beam") or v:IsA("Fire") or v:IsA("Smoke") or v:IsA("Sparkles") then
+            v.Enabled = false
+        end
+    end
+end
+
+local function disableSounds()
+    for _, s in ipairs(workspace:GetDescendants()) do
+        if s:IsA("Sound") then
+            s.Volume = STATE.SOUND and 0 or 1
+            if STATE.SOUND then s.Playing = false end
+        end
+    end
+end
+
+local function lowGraphicsMode()
+    if STATE.LOWGFX then
+        settings().Rendering.QualityLevel = 1
+        for _, v in ipairs(workspace:GetDescendants()) do
             if v:IsA("BasePart") then
-                v.CanCollide = false
+                v.Material = Enum.Material.Plastic
+                v.Reflectance = 0
+            end
+        end
+    else
+        settings().Rendering.QualityLevel = 10
+    end
+end
+
+local function removeTextures()
+    for _, obj in ipairs(workspace:GetDescendants()) do
+        if obj:IsA("Decal") or obj:IsA("Texture") then
+            obj.Transparency = STATE.TEXTURES and 1 or 0
+        end
+    end
+end
+
+local function disablePostEffects()
+    for _, effect in ipairs(Lighting:GetChildren()) do
+        if effect:IsA("BlurEffect") or effect:IsA("BloomEffect") or effect:IsA("ColorCorrectionEffect") then
+            effect.Enabled = not STATE.POSTFX
+        end
+    end
+end
+
+local function grayCharacters()
+    for _, model in ipairs(workspace:GetChildren()) do
+        if model:IsA("Model") then
+            local humanoid = model:FindFirstChildOfClass("Humanoid")
+            if humanoid then
+                for _, part in ipairs(model:GetDescendants()) do
+                    if part:IsA("BasePart") then
+                        if STATE.GRAYCHARS then
+                            part.Color = Color3.fromRGB(150, 150, 150)
+                            part.Material = Enum.Material.Plastic
+                        else
+                            part.Color = Color3.fromRGB(255, 255, 255)
+                        end
+                    end
+                end
+            end
+        end
+    end
+end
+
+---------------- CREATE GUI ----------------
+local gui = Instance.new("ScreenGui", parent)
+gui.Name = "MinhThuanUltimateHub"
+gui.ZIndexBehavior = Enum.ZIndexBehavior.Global
+gui.ResetOnSpawn = false
+
+---------------- MAIN CONTAINER ----------------
+local mainContainer = Instance.new("Frame", gui)
+mainContainer.Name = "MainContainer"
+mainContainer.Size = UDim2.new(0, 450, 0, 600)  -- Tăng chiều cao
+mainContainer.Position = UDim2.new(0.5, -225, 0.5, -300)
+mainContainer.BackgroundColor3 = CONFIG.DarkColor
+mainContainer.BackgroundTransparency = 0.05
+mainContainer.BorderSizePixel = 0
+mainContainer.ClipsDescendants = true
+mainContainer.Active = true
+mainContainer.Draggable = true
+mainContainer.ZIndex = 50
+
+createShadow(mainContainer, UDim2.new(1, 30, 1, 30))
+
+local corner = Instance.new("UICorner")
+corner.CornerRadius = UDim.new(0, 16)
+corner.Parent = mainContainer
+
+---------------- TITLE BAR ----------------
+local titleBar = Instance.new("Frame", mainContainer)
+titleBar.Name = "TitleBar"
+titleBar.Size = UDim2.new(1, 0, 0, 50)
+titleBar.BackgroundColor3 = CONFIG.LightColor
+titleBar.BorderSizePixel = 0
+titleBar.ZIndex = 51
+
+local titleCorner = Instance.new("UICorner")
+titleCorner.CornerRadius = UDim.new(0, 16, 0, 0)
+titleCorner.Parent = titleBar
+
+local title = Instance.new("TextLabel", titleBar)
+title.Text = "🟣 MINH THUẬN ULTIMATE HUB"
+title.Size = UDim2.new(0.7, 0, 1, 0)
+title.Position = UDim2.new(0.05, 0, 0, 0)
+title.BackgroundTransparency = 1
+title.TextColor3 = CONFIG.TextColor
+title.Font = CONFIG.TitleFont
+title.TextSize = 18
+title.TextXAlignment = Enum.TextXAlignment.Left
+title.ZIndex = 52
+
+local subtitle = Instance.new("TextLabel", titleBar)
+subtitle.Text = "Fix Lag + Hack + Hitbox Expander | V3.1 Fixed"
+subtitle.Size = UDim2.new(0.7, 0, 0, 20)
+subtitle.Position = UDim2.new(0.05, 0, 0, 30)
+subtitle.BackgroundTransparency = 1
+subtitle.TextColor3 = Color3.fromRGB(220, 220, 220)
+subtitle.Font = Enum.Font.Gotham
+subtitle.TextSize = 12
+subtitle.TextXAlignment = Enum.TextXAlignment.Left
+subtitle.ZIndex = 52
+
+---------------- CONTROL BUTTONS ----------------
+local buttonContainer = Instance.new("Frame", titleBar)
+buttonContainer.Name = "ControlButtons"
+buttonContainer.Size = UDim2.new(0, 100, 1, 0)
+buttonContainer.Position = UDim2.new(0.85, 0, 0, 0)
+buttonContainer.BackgroundTransparency = 1
+buttonContainer.ZIndex = 52
+
+local minimizeBtn = Instance.new("TextButton", buttonContainer)
+minimizeBtn.Name = "Minimize"
+minimizeBtn.Size = UDim2.new(0, 30, 0, 30)
+minimizeBtn.Position = UDim2.new(0, 10, 0.5, -15)
+minimizeBtn.BackgroundColor3 = Color3.fromRGB(60, 30, 100)
+minimizeBtn.Text = "_"
+minimizeBtn.TextColor3 = CONFIG.TextColor
+minimizeBtn.Font = Enum.Font.GothamBold
+minimizeBtn.TextSize = 18
+minimizeBtn.ZIndex = 53
+
+local minCorner = Instance.new("UICorner")
+minCorner.CornerRadius = UDim.new(0, 6)
+minCorner.Parent = minimizeBtn
+
+local closeBtn = Instance.new("TextButton", buttonContainer)
+closeBtn.Name = "Close"
+closeBtn.Size = UDim2.new(0, 30, 0, 30)
+closeBtn.Position = UDim2.new(0, 50, 0.5, -15)
+closeBtn.BackgroundColor3 = Color3.fromRGB(180, 60, 60)
+closeBtn.Text = "×"
+closeBtn.TextColor3 = Color3.fromRGB(255, 255, 255)
+closeBtn.Font = Enum.Font.GothamBold
+closeBtn.TextSize = 20
+closeBtn.ZIndex = 53
+
+local closeCorner = Instance.new("UICorner")
+closeCorner.CornerRadius = UDim.new(0, 6)
+closeCorner.Parent = closeBtn
+
+---------------- TAB SYSTEM ----------------
+local tabContainer = Instance.new("Frame", mainContainer)
+tabContainer.Name = "TabContainer"
+tabContainer.Size = UDim2.new(1, 0, 0, 40)
+tabContainer.Position = UDim2.new(0, 0, 0, 55)
+tabContainer.BackgroundColor3 = CONFIG.DarkColor
+tabContainer.BorderSizePixel = 0
+tabContainer.ZIndex = 51
+
+local tabs = {"FIX LAG", "HACK", "SETTINGS"}
+local currentTab = "FIX LAG"
+local tabFrames = {}
+
+local function createTabButton(text, index)
+    local tabBtn = Instance.new("TextButton", tabContainer)
+    tabBtn.Name = text .. "Tab"
+    tabBtn.Size = UDim2.new(1/#tabs, 0, 1, 0)
+    tabBtn.Position = UDim2.new((index-1)/#tabs, 0, 0, 0)
+    tabBtn.BackgroundColor3 = CONFIG.DarkColor
+    tabBtn.Text = text
+    tabBtn.TextColor3 = CONFIG.TextColor
+    tabBtn.Font = CONFIG.Font
+    tabBtn.TextSize = 14
+    tabBtn.ZIndex = 52
+    tabBtn.AutoButtonColor = false
+    
+    local highlight = Instance.new("Frame")
+    highlight.Name = "Highlight"
+    highlight.Size = UDim2.new(1, 0, 0, 3)
+    highlight.Position = UDim2.new(0, 0, 1, -3)
+    highlight.BackgroundColor3 = CONFIG.ThemeColor
+    highlight.BorderSizePixel = 0
+    highlight.Visible = (text == currentTab)
+    highlight.ZIndex = 53
+    highlight.Parent = tabBtn
+    
+    tabBtn.MouseButton1Click:Connect(function()
+        currentTab = text
+        for frameName, frame in pairs(tabFrames) do
+            frame.Visible = (frameName == text)
+        end
+        for _, btn in ipairs(tabContainer:GetChildren()) do
+            if btn:IsA("TextButton") then
+                btn.Highlight.Visible = (btn.Text == text)
+                tweenProperty(btn, "BackgroundColor3", 
+                    btn.Text == text and Color3.fromRGB(70, 35, 110) or CONFIG.DarkColor, 0.2)
+            end
+        end
+    end)
+    
+    return tabBtn
+end
+
+for i, tabName in ipairs(tabs) do
+    createTabButton(tabName, i)
+end
+
+---------------- CONTENT FRAMES ----------------
+local function createScrollFrame(parentFrame, visible)
+    local scrollFrame = Instance.new("ScrollingFrame", parentFrame)
+    scrollFrame.Name = parentFrame.Name .. "Scroll"
+    scrollFrame.Size = UDim2.new(1, -20, 1, -145)
+    scrollFrame.Position = UDim2.new(0, 10, 0, 105)
+    scrollFrame.BackgroundTransparency = 1
+    scrollFrame.BorderSizePixel = 0
+    scrollFrame.ScrollBarThickness = 8
+    scrollFrame.ScrollBarImageColor3 = CONFIG.ThemeColor
+    scrollFrame.CanvasSize = UDim2.new(0, 0, 0, 0)
+    scrollFrame.AutomaticCanvasSize = Enum.AutomaticSize.Y
+    scrollFrame.Visible = visible
+    scrollFrame.ZIndex = 50
+    
+    local layout = Instance.new("UIListLayout", scrollFrame)
+    layout.Padding = UDim.new(0, 10)
+    layout.SortOrder = Enum.SortOrder.LayoutOrder
+    
+    return scrollFrame
+end
+
+local fixLagFrame = createScrollFrame(mainContainer, true)
+fixLagFrame.Name = "FIX LAG"
+tabFrames["FIX LAG"] = fixLagFrame
+
+local hackFrame = createScrollFrame(mainContainer, false)
+hackFrame.Name = "HACK"
+tabFrames["HACK"] = hackFrame
+
+local settingsFrame = Instance.new("Frame", mainContainer)
+settingsFrame.Name = "SETTINGS"
+settingsFrame.Size = UDim2.new(1, -20, 1, -145)
+settingsFrame.Position = UDim2.new(0, 10, 0, 105)
+settingsFrame.BackgroundTransparency = 1
+settingsFrame.Visible = false
+settingsFrame.ZIndex = 50
+tabFrames["SETTINGS"] = settingsFrame
+
+---------------- CREDITS ----------------
+local credits = Instance.new("TextLabel", mainContainer)
+credits.Text = "🛠️ Developer: Dương Minh Thuận | ⚡ Ultimate Hub V3.1 Fixed"
+credits.Size = UDim2.new(1, -20, 0, 30)
+credits.Position = UDim2.new(0, 10, 1, -35)
+credits.BackgroundColor3 = CONFIG.LightColor
+credits.BackgroundTransparency = 0.5
+credits.TextColor3 = CONFIG.TextColor
+credits.Font = Enum.Font.Gotham
+credits.TextSize = 11
+credits.ZIndex = 60
+
+local creditsCorner = Instance.new("UICorner")
+creditsCorner.CornerRadius = UDim.new(0, 8)
+creditsCorner.Parent = credits
+
+---------------- MINIMIZED VIEW ----------------
+local minimizedView = Instance.new("Frame", gui)
+minimizedView.Name = "MinimizedView"
+minimizedView.Size = UDim2.new(0, 250, 0, 40)
+minimizedView.Position = UDim2.new(0.5, -125, 0, 10)
+minimizedView.BackgroundColor3 = CONFIG.DarkColor
+minimizedView.BackgroundTransparency = 0.05
+minimizedView.BorderSizePixel = 0
+minimizedView.Visible = false
+minimizedView.ZIndex = 50
+minimizedView.Active = true
+minimizedView.Draggable = true
+
+createShadow(minimizedView, UDim2.new(1, 30, 1, 30))
+
+local miniCorner = Instance.new("UICorner")
+miniCorner.CornerRadius = UDim.new(0, 12)
+miniCorner.Parent = minimizedView
+
+local miniTitle = Instance.new("TextLabel", minimizedView)
+miniTitle.Size = UDim2.new(0.7, 0, 1, 0)
+miniTitle.Position = UDim2.new(0.05, 0, 0, 0)
+miniTitle.BackgroundTransparency = 1
+miniTitle.Text = "🟣 Minh Thuận Hub (Minimized)"
+miniTitle.TextColor3 = CONFIG.TextColor
+miniTitle.Font = CONFIG.TitleFont
+miniTitle.TextSize = 14
+miniTitle.TextXAlignment = Enum.TextXAlignment.Left
+miniTitle.ZIndex = 51
+
+local expandBtn = Instance.new("TextButton", minimizedView)
+expandBtn.Name = "Expand"
+expandBtn.Size = UDim2.new(0, 30, 0, 30)
+expandBtn.Position = UDim2.new(0.85, 0, 0.5, -15)
+expandBtn.BackgroundColor3 = CONFIG.ThemeColor
+expandBtn.Text = "+"
+expandBtn.TextColor3 = Color3.fromRGB(255, 255, 255)
+expandBtn.Font = Enum.Font.GothamBold
+expandBtn.TextSize = 20
+expandBtn.ZIndex = 51
+
+local expandCorner = Instance.new("UICorner")
+expandCorner.CornerRadius = UDim.new(0, 6)
+expandCorner.Parent = expandBtn
+
+---------------- TOGGLE CREATOR ----------------
+local function createToggle(parent, icon, titleText, description, initialState, callback)
+    local box = Instance.new("Frame", parent)
+    box.Size = UDim2.new(1, 0, 0, 70)
+    box.BackgroundColor3 = CONFIG.LightColor
+    box.ZIndex = 55
+    
+    local boxCorner = Instance.new("UICorner", box)
+    boxCorner.CornerRadius = UDim.new(0, 10)
+    
+    -- Icon
+    local iconLabel = Instance.new("TextLabel", box)
+    iconLabel.Size = UDim2.new(0, 40, 0, 40)
+    iconLabel.Position = UDim2.new(0, 10, 0.5, -20)
+    iconLabel.BackgroundTransparency = 1
+    iconLabel.Text = icon
+    iconLabel.TextColor3 = CONFIG.ThemeColor
+    iconLabel.Font = Enum.Font.GothamBold
+    iconLabel.TextSize = 22
+    iconLabel.ZIndex = 56
+    
+    -- Title
+    local titleLabel = Instance.new("TextLabel", box)
+    titleLabel.Size = UDim2.new(0.7, -60, 0, 25)
+    titleLabel.Position = UDim2.new(0, 60, 0, 10)
+    titleLabel.BackgroundTransparency = 1
+    titleLabel.Text = titleText
+    titleLabel.TextColor3 = CONFIG.TextColor
+    titleLabel.Font = CONFIG.Font
+    titleLabel.TextSize = 14
+    titleLabel.TextXAlignment = Enum.TextXAlignment.Left
+    titleLabel.ZIndex = 56
+    
+    -- Description
+    local descLabel = Instance.new("TextLabel", box)
+    descLabel.Size = UDim2.new(0.7, -60, 0, 35)
+    descLabel.Position = UDim2.new(0, 60, 0, 30)
+    descLabel.BackgroundTransparency = 1
+    descLabel.Text = description
+    descLabel.TextColor3 = Color3.fromRGB(200, 200, 200)
+    descLabel.Font = Enum.Font.Gotham
+    descLabel.TextSize = 11
+    descLabel.TextWrapped = true
+    descLabel.TextXAlignment = Enum.TextXAlignment.Left
+    descLabel.ZIndex = 56
+    
+    -- Toggle Button
+    local btn = Instance.new("TextButton", box)
+    btn.Size = UDim2.new(0, 60, 0, 28)
+    btn.Position = UDim2.new(1, -70, 0.5, -14)
+    btn.Text = initialState and "ON" or "OFF"
+    btn.BackgroundColor3 = initialState and Color3.fromRGB(100, 255, 100) or Color3.fromRGB(180, 100, 240)
+    btn.TextColor3 = Color3.fromRGB(255, 255, 255)
+    btn.Font = Enum.Font.GothamBold
+    btn.TextSize = 12
+    btn.ZIndex = 56
+    btn.AutoButtonColor = false
+    
+    local btnCorner = Instance.new("UICorner", btn)
+    btnCorner.CornerRadius = UDim.new(0, 8)
+    
+    -- Status Light
+    local statusLight = Instance.new("Frame", btn)
+    statusLight.Size = UDim2.new(0, 8, 0, 8)
+    statusLight.Position = UDim2.new(0, 5, 0.5, -4)
+    statusLight.BackgroundColor3 = initialState and Color3.fromRGB(50, 255, 50) or Color3.fromRGB(255, 50, 50)
+    statusLight.ZIndex = 57
+    
+    local statusCorner = Instance.new("UICorner", statusLight)
+    statusCorner.CornerRadius = UDim.new(1, 0)
+    
+    -- Hover Effects
+    box.MouseEnter:Connect(function()
+        tweenProperty(box, "BackgroundColor3", Color3.fromRGB(100, 60, 150), 0.2)
+    end)
+    
+    box.MouseLeave:Connect(function()
+        tweenProperty(box, "BackgroundColor3", CONFIG.LightColor, 0.2)
+    end)
+    
+    btn.MouseEnter:Connect(function()
+        if btn.Text == "ON" then
+            tweenProperty(btn, "BackgroundColor3", Color3.fromRGB(120, 255, 120), 0.2)
+        else
+            tweenProperty(btn, "BackgroundColor3", Color3.fromRGB(200, 120, 255), 0.2)
+        end
+    end)
+    
+    btn.MouseLeave:Connect(function()
+        if btn.Text == "ON" then
+            tweenProperty(btn, "BackgroundColor3", Color3.fromRGB(100, 255, 100), 0.2)
+        else
+            tweenProperty(btn, "BackgroundColor3", Color3.fromRGB(180, 100, 240), 0.2)
+        end
+    end)
+    
+    local state = initialState
+    
+    local function updateToggle()
+        if state then
+            btn.Text = "ON"
+            tweenProperty(btn, "BackgroundColor3", Color3.fromRGB(100, 255, 100), 0.3)
+            tweenProperty(statusLight, "BackgroundColor3", Color3.fromRGB(50, 255, 50), 0.3)
+        else
+            btn.Text = "OFF"
+            tweenProperty(btn, "BackgroundColor3", Color3.fromRGB(180, 100, 240), 0.3)
+            tweenProperty(statusLight, "BackgroundColor3", Color3.fromRGB(255, 50, 50), 0.3)
+        end
+        
+        if callback then
+            callback(state)
+        end
+    end
+    
+    btn.MouseButton1Click:Connect(function()
+        state = not state
+        updateToggle()
+    end)
+    
+    -- Initialize
+    updateToggle()
+    
+    return {
+        Box = box,
+        SetState = function(newState)
+            state = newState
+            updateToggle()
+        end,
+        GetState = function()
+            return state
+        end
+    }
+end
+
+---------------- SLIDER CREATOR ----------------
+local function createSlider(parent, labelText, minValue, maxValue, currentValue, callback)
+    local sliderContainer = Instance.new("Frame", parent)
+    sliderContainer.Name = labelText .. "Slider"
+    sliderContainer.Size = UDim2.new(1, 0, 0, 70)
+    sliderContainer.BackgroundTransparency = 1
+    sliderContainer.ZIndex = 55
+    
+    -- Label
+    local label = Instance.new("TextLabel", sliderContainer)
+    label.Size = UDim2.new(1, -20, 0, 25)
+    label.Position = UDim2.new(0, 10, 0, 0)
+    label.BackgroundTransparency = 1
+    label.Text = labelText
+    label.TextColor3 = CONFIG.TextColor
+    label.Font = CONFIG.Font
+    label.TextSize = 14
+    label.TextXAlignment = Enum.TextXAlignment.Left
+    label.ZIndex = 56
+    
+    -- Value Display
+    local valueLabel = Instance.new("TextLabel", sliderContainer)
+    valueLabel.Size = UDim2.new(0, 50, 0, 25)
+    valueLabel.Position = UDim2.new(1, -60, 0, 0)
+    valueLabel.BackgroundTransparency = 1
+    valueLabel.Text = tostring(currentValue)
+    valueLabel.TextColor3 = CONFIG.ThemeColor
+    valueLabel.Font = CONFIG.Font
+    valueLabel.TextSize = 14
+    valueLabel.TextXAlignment = Enum.TextXAlignment.Right
+    valueLabel.ZIndex = 56
+    
+    -- Slider Track
+    local track = Instance.new("Frame", sliderContainer)
+    track.Name = "Track"
+    track.Size = UDim2.new(1, -20, 0, 6)
+    track.Position = UDim2.new(0, 10, 0, 35)
+    track.BackgroundColor3 = Color3.fromRGB(60, 60, 60)
+    track.BorderSizePixel = 0
+    track.ZIndex = 56
+    
+    local trackCorner = Instance.new("UICorner", track)
+    trackCorner.CornerRadius = UDim.new(1, 0)
+    
+    -- Slider Fill
+    local fill = Instance.new("Frame", track)
+    fill.Name = "Fill"
+    fill.Size = UDim2.new((currentValue - minValue) / (maxValue - minValue), 0, 1, 0)
+    fill.BackgroundColor3 = CONFIG.ThemeColor
+    fill.BorderSizePixel = 0
+    fill.ZIndex = 57
+    
+    local fillCorner = Instance.new("UICorner", fill)
+    fillCorner.CornerRadius = UDim.new(1, 0)
+    
+    -- Slider Thumb
+    local thumb = Instance.new("Frame", track)
+    thumb.Name = "Thumb"
+    thumb.Size = UDim2.new(0, 16, 0, 16)
+    thumb.Position = UDim2.new((currentValue - minValue) / (maxValue - minValue), -8, 0.5, -8)
+    thumb.BackgroundColor3 = Color3.fromRGB(255, 255, 255)
+    thumb.BorderSizePixel = 0
+    thumb.ZIndex = 58
+    
+    local thumbCorner = Instance.new("UICorner", thumb)
+    thumbCorner.CornerRadius = UDim.new(1, 0)
+    
+    -- Dragging Logic
+    local dragging = false
+    
+    local function updateSlider(input)
+        local relativeX = (input.Position.X - track.AbsolutePosition.X) / track.AbsoluteSize.X
+        relativeX = math.clamp(relativeX, 0, 1)
+        
+        local value = minValue + (maxValue - minValue) * relativeX
+        value = math.floor(value * 10) / 10
+        
+        fill.Size = UDim2.new(relativeX, 0, 1, 0)
+        thumb.Position = UDim2.new(relativeX, -8, 0.5, -8)
+        valueLabel.Text = tostring(value)
+        
+        if callback then
+            callback(value)
+        end
+    end
+    
+    track.InputBegan:Connect(function(input)
+        if input.UserInputType == Enum.UserInputType.MouseButton1 then
+            dragging = true
+            updateSlider(input)
+        end
+    end)
+    
+    track.InputChanged:Connect(function(input)
+        if dragging and input.UserInputType == Enum.UserInputType.MouseMovement then
+            updateSlider(input)
+        end
+    end)
+    
+    UIS.InputEnded:Connect(function(input)
+        if input.UserInputType == Enum.UserInputType.MouseButton1 then
+            dragging = false
+        end
+    end)
+    
+    return sliderContainer
+end
+
+---------------- SECTION CREATOR ----------------
+local function createSection(parent, text)
+    local section = Instance.new("TextLabel", parent)
+    section.Text = "▬▬▬ " .. text .. " ▬▬▬"
+    section.Size = UDim2.new(1, 0, 0, 30)
+    section.BackgroundTransparency = 1
+    section.TextColor3 = CONFIG.ThemeColor
+    section.Font = CONFIG.TitleFont
+    section.TextSize = 14
+    section.ZIndex = 55
+    
+    return section
+end
+
+---------------- FIX LAG FEATURES ----------------
+local fixToggles = {}
+
+-- Master Fix Button đầu tiên
+local masterFixBtn = Instance.new("TextButton", fixLagFrame)
+masterFixBtn.Text = "⚡ MASTER FIX ALL ⚡"
+masterFixBtn.Size = UDim2.new(1, 0, 0, 50)
+masterFixBtn.BackgroundColor3 = Color3.fromRGB(255, 100, 100)
+masterFixBtn.TextColor3 = Color3.fromRGB(255, 255, 255)
+masterFixBtn.Font = Enum.Font.GothamBold
+masterFixBtn.TextSize = 16
+masterFixBtn.ZIndex = 55
+
+local masterCorner = Instance.new("UICorner", masterFixBtn)
+masterCorner.CornerRadius = UDim.new(0, 10)
+
+masterFixBtn.MouseButton1Click:Connect(function()
+    for _, toggle in pairs(fixToggles) do
+        if toggle.SetState then
+            toggle.SetState(true)
+        end
+    end
+    
+    clearFX()
+    disableSounds()
+    Lighting.GlobalShadows = false
+    lowGraphicsMode()
+    removeTextures()
+    disablePostEffects()
+    grayCharacters()
+    
+    game:GetService("StarterGui"):SetCore("SendNotification", {
+        Title = "MASTER FIX",
+        Text = "Đã áp dụng tất cả tính năng fix lag!",
+        Duration = 3,
+        Icon = "rbxassetid://6723928013"
+    })
+end)
+
+-- Các toggle fix lag
+fixToggles.effects = createToggle(fixLagFrame, "❌", "DISABLE EFFECTS", "Tắt particle, lửa, khói, hiệu ứng", STATE.FX, function(v)
+    STATE.FX = v
+    if v then clearFX() end
+end)
+
+fixToggles.sounds = createToggle(fixLagFrame, "🔇", "DISABLE SOUNDS", "Tắt toàn bộ âm thanh trong game", STATE.SOUND, function(v)
+    STATE.SOUND = v
+    disableSounds()
+end)
+
+fixToggles.shadows = createToggle(fixLagFrame, "🌑", "DISABLE SHADOWS", "Tắt bóng đổ toàn cục", STATE.SHADOW, function(v)
+    STATE.SHADOW = v
+    Lighting.GlobalShadows = not v
+    Lighting.ShadowSoftness = v and 0 or 0.5
+end)
+
+fixToggles.lowgfx = createToggle(fixLagFrame, "📉", "LOW GRAPHICS", "Giảm chất lượng đồ họa tối đa", STATE.LOWGFX, function(v)
+    STATE.LOWGFX = v
+    lowGraphicsMode()
+end)
+
+fixToggles.textures = createToggle(fixLagFrame, "🖼️", "REMOVE TEXTURES", "Xóa texture và decal", STATE.TEXTURES, function(v)
+    STATE.TEXTURES = v
+    removeTextures()
+end)
+
+fixToggles.postfx = createToggle(fixLagFrame, "🌈", "REMOVE POST FX", "Tắt bloom, blur, ánh sáng hậu kỳ", STATE.POSTFX, function(v)
+    STATE.POSTFX = v
+    disablePostEffects()
+end)
+
+fixToggles.graychars = createToggle(fixLagFrame, "👤", "GRAY CHARACTERS", "Biến nhân vật thành màu xám", STATE.GRAYCHARS, function(v)
+    STATE.GRAYCHARS = v
+    grayCharacters()
+end)
+
+---------------- HACK FEATURES ----------------
+local hackToggles = {}
+local hackSliders = {}
+
+-- Section HITBOX
+createSection(hackFrame, "HITBOX EXPANDER")
+
+-- Player Hitbox
+hackToggles.hitbox = createToggle(hackFrame, "🎯", "PLAYER HITBOX", "Mở rộng hitbox người chơi & NPC", STATE.HITBOX_ENABLED, function(v)
+    STATE.HITBOX_ENABLED = v
+    if v then
+        setupHitboxConnections()
+        updateAllHitboxes()
+    else
+        for _, hitbox in pairs(hitboxParts) do
+            if hitbox and hitbox.Parent then
+                hitbox:Destroy()
+            end
+        end
+        hitboxParts = {}
+        for _, conn in pairs(hitboxConnections) do
+            conn:Disconnect()
+        end
+        hitboxConnections = {}
+    end
+end)
+
+-- Slider Hitbox Size
+hackSliders.hitboxSize = createSlider(hackFrame, "Hitbox Size (1-20)", 1, 20, STATE.HITBOX_SIZE, function(value)
+    STATE.HITBOX_SIZE = value
+    for _, hitbox in pairs(hitboxParts) do
+        if hitbox and hitbox.Parent then
+            hitbox.Size = Vector3.new(value, value, value)
+        end
+    end
+end)
+
+-- Slider Hitbox Transparency
+hackSliders.hitboxTransparency = createSlider(hackFrame, "Hitbox Transparency (0-1)", 0, 1, STATE.HITBOX_TRANSPARENCY, function(value)
+    STATE.HITBOX_TRANSPARENCY = value
+    for _, hitbox in pairs(hitboxParts) do
+        if hitbox and hitbox.Parent then
+            hitbox.Transparency = value
+        end
+    end
+end)
+
+-- Tool Hitbox
+hackToggles.toolhitbox = createToggle(hackFrame, "🔧", "TOOL HITBOX", "Mở rộng hitbox tool đang cầm", STATE.TOOL_HITBOX_ENABLED, function(v)
+    STATE.TOOL_HITBOX_ENABLED = v
+    updateToolHitbox()
+end)
+
+-- Slider Tool Hitbox Size
+hackSliders.toolHitboxSize = createSlider(hackFrame, "Tool Hitbox Size (1-50)", 1, 50, STATE.TOOL_HITBOX_SIZE, function(value)
+    STATE.TOOL_HITBOX_SIZE = value
+    if toolHitbox and toolHitbox.Parent then
+        toolHitbox.Size = Vector3.new(value, value, value)
+    end
+end)
+
+-- Section MOVEMENT HACKS
+createSection(hackFrame, "MOVEMENT HACKS")
+
+-- Noclip
+hackToggles.noclip = createToggle(hackFrame, "👻", "NOCLIP", "Đi xuyên qua tường", STATE.NOCLIP, function(v)
+    STATE.NOCLIP = v
+    setupNoclip()
+end)
+
+-- Speed Hack
+hackToggles.speed = createToggle(hackFrame, "⚡", "SPEED HACK", "Tăng tốc độ di chuyển", STATE.SPEED, function(v)
+    STATE.SPEED = v
+    setupSpeedHack()
+end)
+
+-- Slider Speed Value
+hackSliders.speedValue = createSlider(hackFrame, "Speed Value (16-150)", 16, 150, STATE.SPEED_VALUE, function(value)
+    STATE.SPEED_VALUE = value
+    if STATE.SPEED then
+        setupSpeedHack()
+    end
+end)
+
+-- Jump Hack
+hackToggles.jump = createToggle(hackFrame, "🦘", "JUMP HACK", "Tăng sức nhảy", STATE.JUMP, function(v)
+    STATE.JUMP = v
+    setupJumpHack()
+end)
+
+-- Slider Jump Value
+hackSliders.jumpValue = createSlider(hackFrame, "Jump Power (50-500)", 50, 500, STATE.JUMP_VALUE, function(value)
+    STATE.JUMP_VALUE = value
+    if STATE.JUMP then
+        setupJumpHack()
+    end
+end)
+
+-- Fly Hack
+hackToggles.fly = createToggle(hackFrame, "🕊️", "FLY HACK", "Bay lượn tự do", STATE.FLY, function(v)
+    STATE.FLY = v
+    setupFlyHack()
+end)
+
+-- Slider Fly Value
+hackSliders.flyValue = createSlider(hackFrame, "Fly Speed (20-200)", 20, 200, STATE.FLY_VALUE, function(value)
+    STATE.FLY_VALUE = value
+    if STATE.FLY then
+        setupFlyHack()
+    end
+end)
+
+-- Infinite Jump
+hackToggles.infjump = createToggle(hackFrame, "♾️", "INFINITE JUMP", "Nhảy vô hạn trên không", STATE.INFJUMP, function(v)
+    STATE.INFJUMP = v
+    setupInfiniteJump()
+end)
+
+-- ESP Players
+hackToggles.esp = createToggle(hackFrame, "👁️", "PLAYER ESP", "Hiện vị trí người chơi khác", STATE.ESP, function(v)
+    STATE.ESP = v
+    setupESP()
+end)
+
+-- Master Hack Button
+local masterHackBtn = Instance.new("TextButton", hackFrame)
+masterHackBtn.Text = "💥 MASTER HACK ALL 💥"
+masterHackBtn.Size = UDim2.new(1, 0, 0, 50)
+masterHackBtn.BackgroundColor3 = Color3.fromRGB(255, 50, 50)
+masterHackBtn.TextColor3 = Color3.fromRGB(255, 255, 255)
+masterHackBtn.Font = Enum.Font.GothamBold
+masterHackBtn.TextSize = 16
+masterHackBtn.ZIndex = 55
+
+local masterHackCorner = Instance.new("UICorner", masterHackBtn)
+masterHackCorner.CornerRadius = UDim.new(0, 10)
+
+masterHackBtn.MouseButton1Click:Connect(function()
+    for _, toggle in pairs(hackToggles) do
+        if toggle.SetState then
+            toggle.SetState(true)
+        end
+    end
+    
+    setupHitboxConnections()
+    updateAllHitboxes()
+    updateToolHitbox()
+    setupNoclip()
+    setupSpeedHack()
+    setupJumpHack()
+    setupFlyHack()
+    setupInfiniteJump()
+    setupESP()
+    
+    game:GetService("StarterGui"):SetCore("SendNotification", {
+        Title = "MASTER HACK",
+        Text = "Đã kích hoạt toàn bộ hack!",
+        Duration = 3,
+        Icon = "rbxassetid://6723928013"
+    })
+end)
+
+---------------- SETTINGS TAB ----------------
+local settingsHeader = Instance.new("TextLabel", settingsFrame)
+settingsHeader.Text = "⚙️ GUI SETTINGS"
+settingsHeader.Size = UDim2.new(1, 0, 0, 30)
+settingsHeader.BackgroundTransparency = 1
+settingsHeader.TextColor3 = CONFIG.ThemeColor
+settingsHeader.Font = CONFIG.TitleFont
+settingsHeader.TextSize = 18
+settingsHeader.TextXAlignment = Enum.TextXAlignment.Left
+settingsHeader.ZIndex = 55
+settingsHeader.Position = UDim2.new(0, 0, 0, 0)
+
+-- GUI Opacity Slider
+local opacitySlider = createSlider(settingsFrame, "GUI Opacity (0.1-1)", 0.1, 1, 0.95, function(value)
+    mainContainer.BackgroundTransparency = 1 - value
+    minimizedView.BackgroundTransparency = 1 - value
+end)
+opacitySlider.Position = UDim2.new(0, 0, 0, 40)
+
+-- Join New Server Button
+local newServerBtn = Instance.new("TextButton", settingsFrame)
+newServerBtn.Text = "🔄 JOIN NEW SERVER"
+newServerBtn.Size = UDim2.new(1, 0, 0, 50)
+newServerBtn.Position = UDim2.new(0, 0, 0, 120)
+newServerBtn.BackgroundColor3 = Color3.fromRGB(100, 60, 160)
+newServerBtn.TextColor3 = Color3.fromRGB(255, 255, 255)
+newServerBtn.Font = Enum.Font.GothamBold
+newServerBtn.TextSize = 14
+newServerBtn.ZIndex = 55
+
+local serverCorner = Instance.new("UICorner", newServerBtn)
+serverCorner.CornerRadius = UDim.new(0, 10)
+
+newServerBtn.MouseButton1Click:Connect(function()
+    TeleportService:Teleport(game.PlaceId, player)
+end)
+
+-- FPS Counter
+local fpsEnabled = false
+local fpsCounter
+local fpsToggle = createToggle(settingsFrame, "📊", "FPS COUNTER", "Hiển thị FPS realtime", false, function(v)
+    fpsEnabled = v
+    
+    if v then
+        fpsCounter = Instance.new("ScreenGui")
+        fpsCounter.Name = "FPSCounter"
+        fpsCounter.Parent = gui
+        
+        local frame = Instance.new("Frame", fpsCounter)
+        frame.Size = UDim2.new(0, 100, 0, 40)
+        frame.Position = UDim2.new(1, -110, 0, 10)
+        frame.BackgroundColor3 = CONFIG.DarkColor
+        frame.BackgroundTransparency = 0.3
+        frame.BorderSizePixel = 0
+        
+        local corner = Instance.new("UICorner", frame)
+        corner.CornerRadius = UDim.new(0, 8)
+        
+        local label = Instance.new("TextLabel", frame)
+        label.Size = UDim2.new(1, 0, 1, 0)
+        label.BackgroundTransparency = 1
+        label.Text = "FPS: 0"
+        label.TextColor3 = Color3.fromRGB(0, 255, 0)
+        label.Font = CONFIG.Font
+        label.TextSize = 18
+        label.Name = "FPSLabel"
+        
+        RunService.RenderStepped:Connect(function()
+            label.Text = "FPS: " .. math.floor(1 / RunService.RenderStepped:Wait())
+        end)
+    else
+        if fpsCounter then
+            fpsCounter:Destroy()
+        end
+    end
+end)
+fpsToggle.Box.Position = UDim2.new(0, 0, 0, 180)
+
+---------------- GUI CONTROLS ----------------
+local dragging, dragInput, dragStart, startPos
+
+titleBar.InputBegan:Connect(function(input)
+    if input.UserInputType == Enum.UserInputType.MouseButton1 then
+        dragging = true
+        dragStart = input.Position
+        startPos = mainContainer.Position
+        
+        input.Changed:Connect(function()
+            if input.UserInputState == Enum.UserInputState.End then
+                dragging = false
+            end
+        end)
+    end
+end)
+
+titleBar.InputChanged:Connect(function(input)
+    if input.UserInputType == Enum.UserInputType.MouseMovement then
+        dragInput = input
+    end
+end)
+
+UIS.InputChanged:Connect(function(input)
+    if dragging and input == dragInput then
+        local delta = input.Position - dragStart
+        mainContainer.Position = UDim2.new(startPos.X.Scale, startPos.X.Offset + delta.X, startPos.Y.Scale, startPos.Y.Offset + delta.Y)
+    end
+end)
+
+minimizeBtn.MouseButton1Click:Connect(function()
+    STATE.MINIMIZED = not STATE.MINIMIZED
+    
+    if STATE.MINIMIZED then
+        minimizedView.Visible = true
+        mainContainer.Visible = false
+    else
+        minimizedView.Visible = false
+        mainContainer.Visible = true
+    end
+end)
+
+expandBtn.MouseButton1Click:Connect(function()
+    STATE.MINIMIZED = false
+    minimizedView.Visible = false
+    mainContainer.Visible = true
+end)
+
+closeBtn.MouseButton1Click:Connect(function()
+    mainContainer.Visible = false
+    minimizedView.Visible = true
+end)
+
+---------------- KEYBINDS ----------------
+UIS.InputBegan:Connect(function(input, gameProcessed)
+    if not gameProcessed then
+        if input.KeyCode == Enum.KeyCode.F9 then
+            mainContainer.Visible = not mainContainer.Visible
+            minimizedView.Visible = not mainContainer.Visible
+        elseif input.KeyCode == Enum.KeyCode.F10 then
+            currentTab = "HACK"
+            for frameName, frame in pairs(tabFrames) do
+                frame.Visible = (frameName == currentTab)
+            end
+            for _, btn in ipairs(tabContainer:GetChildren()) do
+                if btn:IsA("TextButton") then
+                    btn.Highlight.Visible = (btn.Text == currentTab)
+                    tweenProperty(btn, "BackgroundColor3", 
+                        btn.Text == currentTab and Color3.fromRGB(70, 35, 110) or CONFIG.DarkColor, 0.2)
+                end
+            end
+        elseif input.KeyCode == Enum.KeyCode.F11 then
+            currentTab = "SETTINGS"
+            for frameName, frame in pairs(tabFrames) do
+                frame.Visible = (frameName == currentTab)
+            end
+            for _, btn in ipairs(tabContainer:GetChildren()) do
+                if btn:IsA("TextButton") then
+                    btn.Highlight.Visible = (btn.Text == currentTab)
+                    tweenProperty(btn, "BackgroundColor3", 
+                        btn.Text == currentTab and Color3.fromRGB(70, 35, 110) or CONFIG.DarkColor, 0.2)
+                end
             end
         end
     end
 end)
 
---==================================================
--- CLICK TELEPORT
---==================================================
-UIS.InputBegan:Connect(function(input)
-    if STATE.ClickTP and input.UserInputType == Enum.UserInputType.MouseButton1 then
-        local mouse = player:GetMouse()
-        if mouse.Hit then
-            local hrp = getHRP(player.Character)
-            if hrp then
-                hrp.CFrame = CFrame.new(mouse.Hit.Position + Vector3.new(0,3,0))
-            end
+---------------- AUTO-OPTIMIZATION ----------------
+spawn(function()
+    wait(2)
+    
+    Lighting.GlobalShadows = false
+    Lighting.FogEnd = 100000
+    
+    for _, v in ipairs(Lighting:GetChildren()) do
+        if v:IsA("PostEffect") then
+            v.Enabled = false
         end
     end
 end)
 
---==================================================
--- TABS
---==================================================
-local MainTab = Window:CreateTab("⚙ Fix Lag", 4483362458)
-local HackTab = Window:CreateTab("💥 Hack", 4483345990)
+---------------- CHARACTER CONNECTIONS ----------------
+player.CharacterAdded:Connect(function(character)
+    wait(1)
+    if STATE.SPEED then setupSpeedHack() end
+    if STATE.JUMP then setupJumpHack() end
+    if STATE.FLY then setupFlyHack() end
+    if STATE.NOCLIP then setupNoclip() end
+    updateToolHitbox()
+end)
 
---==================================================
--- FIX LAG TAB (GIỮ NGUYÊN)
---==================================================
-MainTab:CreateButton({
-    Name = "🚀 Master Fix Lag",
-    Callback = function()
-        Lighting.GlobalShadows = false
-        for _,v in ipairs(Lighting:GetChildren()) do
-            if v:IsA("PostEffect") then
-                v.Enabled = false
-            end
-        end
-        for _,s in ipairs(workspace:GetDescendants()) do
-            if s:IsA("Sound") then
-                s.Volume = 0
-            end
-        end
-    end
+---------------- FINAL INITIALIZATION ----------------
+print([[
+===============================================
+🟣 MINH THUẬN ULTIMATE HUB LOADED!
+⚡ Developer: Dương Minh Thuận
+🎮 Version: 3.1 Fixed Edition
+🎯 Features: Fix Lag + Hacks + Hitbox Expander
+📌 Controls: 
+   F9 = Toggle GUI
+   F10 = Hack Tab
+   F11 = Settings Tab
+===============================================
+]])
+
+game:GetService("StarterGui"):SetCore("SendNotification", {
+    Title = "MINH THUẬN ULTIMATE HUB",
+    Text = "GUI đã tải thành công!\nF9: Ẩn/hiện | F10: Hack | F11: Settings",
+    Duration = 5,
+    Icon = "rbxassetid://6723928013"
 })
 
---==================================================
--- HACK TAB
---==================================================
-
-HackTab:CreateToggle({
-    Name = "🎯 Hitbox (Player)",
-    CurrentValue = false,
-    Callback = function(v)
-        STATE.HitboxOn = v
-        applyHitbox(v)
-    end
-})
-
-HackTab:CreateSlider({
-    Name = "📏 Hitbox Size",
-    Range = {2, 20},
-    Increment = 1,
-    CurrentValue = 6,
-    Callback = function(v)
-        STATE.HitboxSize = v
-        if STATE.HitboxOn then
-            applyHitbox(true)
-        end
-    end
-})
-
-HackTab:CreateToggle({
-    Name = "🕊 Fly (WASD)",
-    CurrentValue = false,
-    Callback = function(v)
-        STATE.Fly = v
-        setFly(v)
-    end
-})
-
-HackTab:CreateToggle({
-    Name = "🚪 Noclip",
-    CurrentValue = false,
-    Callback = function(v)
-        STATE.Noclip = v
-    end
-})
-
-HackTab:CreateToggle({
-    Name = "🖱 Click Teleport",
-    CurrentValue = false,
-    Callback = function(v)
-        STATE.ClickTP = v
-    end
-})
-
---==================================================
--- CREDIT
---==================================================
-HackTab:CreateLabel("👑 Minh Thuận Hub")
-HackTab:CreateLabel("Author: Dương Minh Thuận")
-HackTab:CreateLabel("Client-side | Universal")
-
-Rayfield:Notify({
-    Title = "Minh Thuận Hub",
-    Content = "Load thành công!\nFix Lag + Hack đã sẵn sàng",
-    Duration = 5
-})
+-- Initialize connections
+if player.Character then
+    updateToolHitbox()
+end
